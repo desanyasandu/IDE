@@ -25,7 +25,9 @@ import {
   Send,
   Terminal,
   Zap,
-  CheckCheck
+  CheckCheck,
+  Mic,
+  MicOff
 } from "lucide-react";
 
 interface MockFile {
@@ -242,9 +244,70 @@ export default function IDELayout() {
   const [inputMessage, setInputMessage] = useState("");
   const [aiStatus, setAiStatus] = useState<"idle" | "thinking" | "typing">("idle");
   const [streamingMessage, setStreamingMessage] = useState("");
+  const [isListening, setIsListening] = useState(false);
+  const recognitionRef = useRef<any>(null);
 
   const chatEndRef = useRef<HTMLDivElement>(null);
   const messageInputRef = useRef<HTMLTextAreaElement>(null);
+
+  const startListening = () => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert("Speech recognition is not supported in this browser. Please use Chrome or Edge.");
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.lang = "en-US";
+
+    recognition.onstart = () => {
+      setIsListening(true);
+    };
+
+    recognition.onresult = (event: any) => {
+      const transcript = event.results[0][0].transcript;
+      setInputMessage(prev => {
+        const space = prev.trim() ? " " : "";
+        return prev + space + transcript;
+      });
+    };
+
+    recognition.onerror = (event: any) => {
+      console.error("Speech recognition error:", event.error);
+      setIsListening(false);
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+    };
+
+    recognitionRef.current = recognition;
+    recognition.start();
+  };
+
+  const stopListening = () => {
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+    }
+  };
+
+  const handleVoiceInputToggle = () => {
+    if (isListening) {
+      stopListening();
+    } else {
+      startListening();
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+      }
+    };
+  }, []);
 
   // Auto-scroll chat to bottom
   useEffect(() => {
@@ -339,7 +402,7 @@ export default function IDELayout() {
   };
 
   // Handle sending chat message
-  const handleSendMessage = (e: React.FormEvent) => {
+  const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputMessage.trim() || aiStatus !== "idle") return;
 
@@ -354,52 +417,91 @@ export default function IDELayout() {
     const promptText = inputMessage;
     setInputMessage("");
 
-    // Simulate AI response sequence
     setAiStatus("thinking");
 
-    setTimeout(() => {
-      // Transition from thinking to typing
-      setAiStatus("typing");
+    try {
+      // Map history to Ollama API format
+      const ollamaMessages = messages.map(m => ({
+        role: m.sender === "user" ? "user" : "assistant",
+        content: m.text
+      }));
+      
+      // Add current message
+      ollamaMessages.push({ role: "user", content: promptText });
 
-      // Select dynamic response based on prompt text
-      let responseText = "";
-      const lowercasePrompt = promptText.toLowerCase();
+      // Add developer system instructions
+      ollamaMessages.unshift({
+        role: "system",
+        content: `You are an AI Developer Assistant built into an IDE. You are helping the user with their workspace. You have access to their current file: ${files[activeFilePath]?.name || "None"}. Help them write, explain, refactor, or test code.`
+      });
 
-      if (lowercasePrompt.includes("explain")) {
-        responseText = `Here is a detailed breakdown of \`${files[activeFilePath].name}\`:\n\n1. **Structure**: It is written in ${files[activeFilePath].language.toUpperCase()}.\n2. **Logic**: Handles client-side React rendering and state coordination.\n3. **Key APIs**: Utilizes modular design elements, local React state hooks (\`useState\`, \`useEffect\`), and integrated layouts.\n4. **Optimization**: Ready for deployment. Runs fast with minimal re-render cycles. Let me know if you want to rewrite a specific portion!`;
-      } else if (lowercasePrompt.includes("refactor") || lowercasePrompt.includes("optimize")) {
-        responseText = `Here is a refactored code proposal for \`${files[activeFilePath].name}\` to enhance performance and readability:\n\n\`\`\`typescript\n// Refactored State hooks\nimport React, { useMemo } from 'react';\n\n// Memoize workspace selectors to avoid unnecessary re-renders\nconst memoizedValue = useMemo(() => {\n  return computeExpensiveValue(activeFilePath);\n}, [activeFilePath]);\n\`\`\`\nThis reduces CPU overhead and maintains smooth UI transitions.`;
-      } else if (lowercasePrompt.includes("test") || lowercasePrompt.includes("jest")) {
-        responseText = `Here is a Jest + React Testing Library test script for \`${files[activeFilePath].name}\`:\n\n\`\`\`typescript\nimport { render, screen } from '@testing-library/react';\nimport App from './App';\n\ndescribe('IDE component tests', () => {\n  it('loads Monaco Editor container successfully', () => {\n    render(<App />);\n    const workspaceElement = screen.getByTestId('ide-container');\n    expect(workspaceElement).toBeInTheDocument();\n  });\n});\n\`\`\`\nRun this using \`npm test\` to confirm setup correctness.`;
-      } else {
-        responseText = `I received your request: "${promptText}".\n\nAs your AI assistant, I can help you compile, refactor, or test this workspace. Try selecting one of the quick suggestions below, or ask me to modify code blocks in \`${files[activeFilePath].name}\`.`;
+      const response = await fetch("http://localhost:11434/api/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          model: "gemma4:e4b",
+          messages: ollamaMessages,
+          stream: true
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Ollama server returned status ${response.status}`);
       }
 
-      // Stream the response word by word
-      const words = responseText.split(" ");
-      let currentWordIndex = 0;
+      setAiStatus("typing");
+      
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder("utf-8");
       let accumulatedText = "";
 
-      const typingInterval = setInterval(() => {
-        if (currentWordIndex < words.length) {
-          accumulatedText += (currentWordIndex === 0 ? "" : " ") + words[currentWordIndex];
-          setStreamingMessage(accumulatedText);
-          currentWordIndex++;
-        } else {
-          clearInterval(typingInterval);
-          // Typing complete
-          const aiMsg: ChatMessage = {
-            id: (Date.now() + 1).toString(),
-            sender: "ai",
-            text: responseText,
-            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-          };
-          setMessages(prev => [...prev, aiMsg]);
-          setStreamingMessage("");
-          setAiStatus("idle");
+      if (reader) {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          const chunk = decoder.decode(value, { stream: true });
+          const lines = chunk.split("\n");
+          
+          for (const line of lines) {
+            if (line.trim() === "") continue;
+            try {
+              const parsed = JSON.parse(line);
+              if (parsed.message?.content) {
+                accumulatedText += parsed.message.content;
+                setStreamingMessage(accumulatedText);
+              }
+            } catch (err) {
+              console.error("Error parsing streaming line:", err, line);
+            }
+          }
         }
-      }, 35); // Optimized words streaming interval for natural feel
-    }, 1200); // Optimized thinking delay (slightly faster for desktop snappy feel)
+      }
+
+      const aiMsg: ChatMessage = {
+        id: Date.now().toString(),
+        sender: "ai",
+        text: accumulatedText || "No response received.",
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      };
+      setMessages(prev => [...prev, aiMsg]);
+      setStreamingMessage("");
+      setAiStatus("idle");
+
+    } catch (error) {
+      console.error("Local Gemma 4 connection failed:", error);
+      const errorMsg: ChatMessage = {
+        id: Date.now().toString(),
+        sender: "ai",
+        text: "Error: Failed to connect to local Gemma 4 model. Please ensure Ollama is running on port 11434 and 'gemma4:e4b' is downloaded.",
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      };
+      setMessages(prev => [...prev, errorMsg]);
+      setStreamingMessage("");
+      setAiStatus("idle");
+    }
   };
 
   const getFileIcon = (fileName: string) => {
@@ -1266,7 +1368,10 @@ export default function IDELayout() {
 
           {/* Input Area */}
           <form 
-            onSubmit={handleSendMessage} 
+            onSubmit={(e) => {
+              stopListening();
+              handleSendMessage(e);
+            }} 
             className="p-3.5 bg-[#141418] border-t border-[#202025] flex flex-col gap-2 shrink-0"
           >
             <div className="relative flex items-end glass-input rounded-2xl p-2.5 focus-within:ring-1 focus-within:ring-purple-500/60 focus-within:border-transparent">
@@ -1277,6 +1382,7 @@ export default function IDELayout() {
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey) {
                     e.preventDefault();
+                    stopListening();
                     handleSendMessage(e);
                   }
                 }}
@@ -1285,6 +1391,19 @@ export default function IDELayout() {
                 className="flex-1 max-h-24 min-h-[44px] resize-none bg-transparent text-white text-xs placeholder-slate-500 self-center focus:outline-none scrollbar-none py-1 pl-1"
                 rows={1}
               />
+              <button
+                type="button"
+                onClick={handleVoiceInputToggle}
+                disabled={aiStatus !== "idle"}
+                className={`p-2 rounded-xl transition-all self-center hover-scale shrink-0 cursor-pointer mr-1.5 ${
+                  isListening
+                    ? "bg-red-600/20 text-red-400 border border-red-500/30 animate-pulse"
+                    : "text-slate-400 hover:text-white hover:bg-slate-800/40"
+                }`}
+                title={isListening ? "Listening... Click to stop" : "Voice input"}
+              >
+                {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+              </button>
               <button
                 type="submit"
                 disabled={!inputMessage.trim() || aiStatus !== "idle"}
