@@ -568,15 +568,24 @@ export default function IDELayout() {
           ? "bg-[#1a1a1f] border-[#25252b] text-slate-400"
           : "bg-[#ffffff] border-[#e5e7eb] text-slate-600 shadow-sm"
       }`}>
-        <div className="flex items-center gap-2">
-          <div className="flex gap-1.5 mr-2">
-            <span className="w-3 h-3 rounded-full bg-[#ff5f56] inline-block hover:brightness-110 cursor-pointer transition-all"></span>
-            <span className="w-3 h-3 rounded-full bg-[#ffbd2e] inline-block hover:brightness-110 cursor-pointer transition-all"></span>
-            <span className="w-3 h-3 rounded-full bg-[#27c93f] inline-block hover:brightness-110 cursor-pointer transition-all"></span>
-          </div>
+        <div className="flex items-center gap-4">
           <div className="flex items-center gap-1.5 ml-2">
             <Terminal className="w-3.5 h-3.5 text-indigo-400" />
             <span className={`font-semibold tracking-wide font-mono transition-colors duration-250 ${editorTheme === "vs-dark" ? "text-slate-300" : "text-slate-700"}`}>COD Code IDE</span>
+          </div>
+
+          {/* Main Menu Bar */}
+          <div className={`hidden lg:flex items-center text-[11px] font-medium transition-colors duration-250 ${
+            editorTheme === "vs-dark" ? "text-slate-400" : "text-slate-600"
+          }`}>
+            <button className={`px-2 py-1 rounded transition-colors ${editorTheme === "vs-dark" ? "hover:bg-slate-800/60 hover:text-slate-200" : "hover:bg-slate-200/60 hover:text-slate-900"} cursor-pointer`}>File</button>
+            <button className={`px-2 py-1 rounded transition-colors ${editorTheme === "vs-dark" ? "hover:bg-slate-800/60 hover:text-slate-200" : "hover:bg-slate-200/60 hover:text-slate-900"} cursor-pointer`}>Edit</button>
+            <button className={`px-2 py-1 rounded transition-colors ${editorTheme === "vs-dark" ? "hover:bg-slate-800/60 hover:text-slate-200" : "hover:bg-slate-200/60 hover:text-slate-900"} cursor-pointer`}>Selection</button>
+            <button className={`px-2 py-1 rounded transition-colors ${editorTheme === "vs-dark" ? "hover:bg-slate-800/60 hover:text-slate-200" : "hover:bg-slate-200/60 hover:text-slate-900"} cursor-pointer`}>View</button>
+            <button className={`px-2 py-1 rounded transition-colors ${editorTheme === "vs-dark" ? "hover:bg-slate-800/60 hover:text-slate-200" : "hover:bg-slate-200/60 hover:text-slate-900"} cursor-pointer`}>Go</button>
+            <button className={`px-2 py-1 rounded transition-colors ${editorTheme === "vs-dark" ? "hover:bg-slate-800/60 hover:text-slate-200" : "hover:bg-slate-200/60 hover:text-slate-900"} cursor-pointer`}>Run</button>
+            <button className={`px-2 py-1 rounded transition-colors ${editorTheme === "vs-dark" ? "hover:bg-slate-800/60 hover:text-slate-200" : "hover:bg-slate-200/60 hover:text-slate-900"} cursor-pointer`}>Terminal</button>
+            <button className={`px-2 py-1 rounded transition-colors ${editorTheme === "vs-dark" ? "hover:bg-slate-800/60 hover:text-slate-200" : "hover:bg-slate-200/60 hover:text-slate-900"} cursor-pointer`}>Help</button>
           </div>
         </div>
         
@@ -831,9 +840,15 @@ export default function IDELayout() {
                       <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Owner" className="w-6 h-6 rounded-full" alt="avatar" />
                       <span>owner@antigravity.studio</span>
                     </div>
-                    <button className={`flex items-center gap-2.5 px-4 py-3 text-sm transition-colors cursor-pointer text-left ${
-                      editorTheme === "vs-dark" ? "hover:bg-slate-800/50 hover:text-white" : "hover:bg-slate-50 hover:text-indigo-600"
-                    }`}>
+                    <button 
+                      onClick={() => {
+                        setIsAccountMenuOpen(false);
+                        alert("Redirecting to Account Management portal...");
+                      }}
+                      className={`flex items-center gap-2.5 px-4 py-3 text-sm transition-colors cursor-pointer text-left ${
+                        editorTheme === "vs-dark" ? "hover:bg-slate-800/50 hover:text-white" : "hover:bg-slate-50 hover:text-indigo-600"
+                      }`}
+                    >
                       <Settings className="w-4 h-4" />
                       <span>Manage Account</span>
                     </button>
