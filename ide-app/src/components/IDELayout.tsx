@@ -624,7 +624,7 @@ export default function IDELayout() {
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-1.5 ml-2">
             <Terminal className="w-3.5 h-3.5 text-indigo-400" />
-            <span className={`font-semibold tracking-wide font-mono transition-colors duration-250 ${editorTheme === "vs-dark" ? "text-slate-300" : "text-slate-700"}`}>Cod Code IDE</span>
+            <span className={`font-semibold tracking-wide font-mono transition-colors duration-250 ${editorTheme === "vs-dark" ? "text-slate-300" : "text-slate-700"}`}>COD Code IDE</span>
           </div>
 
           {/* Main Menu Bar */}
@@ -2007,7 +2007,7 @@ export default function IDELayout() {
             }`}>
               <div className="flex items-center gap-2">
                 <Settings className={`w-5 h-5 ${editorTheme === "vs-dark" ? "text-indigo-400" : "text-indigo-600"}`} />
-                <span className="font-bold text-sm tracking-wide">Cod Code IDE User Settings</span>
+                <span className="font-bold text-sm tracking-wide">COD Code IDE User Settings</span>
               </div>
               <button 
                 onClick={() => setShowSettings(false)}
