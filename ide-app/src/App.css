@@ -151,3 +151,38 @@
 button:focus, textarea:focus, input:focus {
   outline: none;
 }
+
+/* 💡 Light Mode and Settings Panel Overrides */
+
+body.light-mode {
+  background-color: #f3f4f6;
+  color: #1f2937;
+}
+
+body.light-mode ::-webkit-scrollbar-track {
+  background: rgba(243, 244, 246, 0.8);
+}
+
+body.light-mode ::-webkit-scrollbar-thumb {
+  background: rgba(99, 102, 241, 0.25);
+}
+
+body.light-mode ::-webkit-scrollbar-thumb:hover {
+  background: rgba(99, 102, 241, 0.45);
+}
+
+/* Glassmorphism Settings Card (Dark/Light Responsive) */
+.settings-glass-panel {
+  background: rgba(22, 22, 26, 0.7);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+body.light-mode .settings-glass-panel {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
