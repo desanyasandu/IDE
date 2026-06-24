@@ -1802,6 +1802,215 @@ export default function IDELayout() {
         </div>
       </footer>
 
+      {/* Settings Modal */}
+      {showSettings && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div className="settings-glass-panel w-full max-w-2xl h-[450px] rounded-2xl flex flex-col overflow-hidden shadow-2xl relative animate-slide-up" style={{
+            background: editorTheme === "vs-dark" 
+              ? "linear-gradient(135deg, rgba(24,24,28,0.95) 0%, rgba(30,30,35,0.92) 100%)" 
+              : "linear-gradient(135deg, rgba(249,250,251,0.95) 0%, rgba(243,244,246,0.92) 100%)",
+            border: editorTheme === "vs-dark" 
+              ? "1px solid rgba(51,51,68,0.4)" 
+              : "1px solid rgba(203,213,225,0.4)"
+          }}>
+            
+            {/* Modal Header */}
+            <div className={`px-5 py-4 border-b flex items-center justify-between transition-colors duration-250 ${
+              editorTheme === "vs-dark" ? "border-slate-800/80 text-white" : "border-slate-200 text-slate-800"
+            }`}>
+              <div className="flex items-center gap-2">
+                <Settings className={`w-5 h-5 ${editorTheme === "vs-dark" ? "text-indigo-400" : "text-indigo-600"}`} />
+                <span className="font-bold text-sm tracking-wide">Cod Code IDE User Settings</span>
+              </div>
+              <button 
+                onClick={() => setShowSettings(false)}
+                className={`p-1.5 rounded-xl transition-all cursor-pointer ${
+                  editorTheme === "vs-dark" ? "hover:bg-slate-800 text-slate-400 hover:text-white" : "hover:bg-slate-100 text-slate-500 hover:text-slate-800"
+                }`}
+                title="Close settings"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="flex-1 flex overflow-hidden">
+              
+              {/* Left Settings Sidebar Tabs */}
+              <div className={`w-48 shrink-0 p-3 flex flex-col gap-1 border-r transition-colors duration-250 ${
+                editorTheme === "vs-dark" ? "bg-[#18181c]/40 border-slate-800/80" : "bg-[#f9fafb] border-slate-200"
+              }`}>
+                <button
+                  onClick={() => setActiveSettingsTab("editor")}
+                  className={`w-full py-2 px-3 rounded-lg text-left text-xs font-semibold transition-all cursor-pointer ${
+                    activeSettingsTab === "editor"
+                      ? "bg-indigo-600 text-white shadow-md shadow-indigo-950/20"
+                      : (editorTheme === "vs-dark" ? "text-slate-400 hover:bg-slate-800/60 hover:text-slate-200" : "text-slate-600 hover:bg-slate-200/50 hover:text-slate-900")
+                  }`}
+                >
+                  Editor Configuration
+                </button>
+                <button
+                  onClick={() => setActiveSettingsTab("interface")}
+                  className={`w-full py-2 px-3 rounded-lg text-left text-xs font-semibold transition-all cursor-pointer ${
+                    activeSettingsTab === "interface"
+                      ? "bg-indigo-600 text-white shadow-md shadow-indigo-950/20"
+                      : (editorTheme === "vs-dark" ? "text-slate-400 hover:bg-slate-800/60 hover:text-slate-200" : "text-slate-600 hover:bg-slate-200/50 hover:text-slate-900")
+                  }`}
+                >
+                  Interface & Layout
+                </button>
+                <button
+                  onClick={() => setActiveSettingsTab("ai")}
+                  className={`w-full py-2 px-3 rounded-lg text-left text-xs font-semibold transition-all cursor-pointer ${
+                    activeSettingsTab === "ai"
+                      ? "bg-indigo-600 text-white shadow-md shadow-indigo-950/20"
+                      : (editorTheme === "vs-dark" ? "text-slate-400 hover:bg-slate-800/60 hover:text-slate-200" : "text-slate-600 hover:bg-slate-200/50 hover:text-slate-900")
+                  }`}
+                >
+                  AI Configuration
+                </button>
+              </div>
+
+              {/* Right Settings Configuration Form */}
+              <div className={`flex-1 p-5 overflow-y-auto text-xs space-y-5 transition-colors duration-250 ${
+                editorTheme === "vs-dark" ? "text-slate-300" : "text-slate-700"
+              }`}>
+                {activeSettingsTab === "editor" && (
+                  <>
+                    <div className="border-b pb-3 border-transparent">
+                      <h3 className={`text-[13px] font-bold mb-1.5 ${editorTheme === "vs-dark" ? "text-slate-100" : "text-slate-800"}`}>Text Editor Customization</h3>
+                      <p className={`text-[11px] ${editorTheme === "vs-dark" ? "text-slate-500" : "text-slate-500"}`}>Configure Monaco Editor behavior and appearance.</p>
+                    </div>
+
+                    <div className="space-y-3">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input 
+                          type="checkbox" 
+                          checked={minimapEnabled} 
+                          onChange={(e) => setMinimapEnabled(e.target.checked)}
+                          className="w-3.5 h-3.5 rounded accent-indigo-600"
+                        />
+                        <span className="font-semibold">Enable Minimap</span>
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input 
+                          type="checkbox" 
+                          checked={autoSave} 
+                          onChange={(e) => setAutoSave(e.target.checked)}
+                          className="w-3.5 h-3.5 rounded accent-indigo-600"
+                        />
+                        <span className="font-semibold">Auto-save</span>
+                      </label>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="block">
+                        <span className="font-semibold">Word Wrap</span>
+                        <select 
+                          value={wordWrap} 
+                          onChange={(e) => setWordWrap(e.target.value as "on" | "off")}
+                          className={`w-full mt-1 px-2 py-1.5 rounded text-xs border transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                            editorTheme === "vs-dark"
+                              ? "bg-[#1b1b22] border-slate-700 text-white"
+                              : "bg-white border-slate-300 text-slate-800"
+                          }`}
+                        >
+                          <option value="on">On</option>
+                          <option value="off">Off</option>
+                        </select>
+                      </label>
+
+                      <label className="block">
+                        <span className="font-semibold">Cursor Blinking</span>
+                        <select 
+                          value={cursorBlinking} 
+                          onChange={(e) => setCursorBlinking(e.target.value as "smooth" | "blink" | "solid" | "expand")}
+                          className={`w-full mt-1 px-2 py-1.5 rounded text-xs border transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                            editorTheme === "vs-dark"
+                              ? "bg-[#1b1b22] border-slate-700 text-white"
+                              : "bg-white border-slate-300 text-slate-800"
+                          }`}
+                        >
+                          <option value="blink">Blink</option>
+                          <option value="smooth">Smooth</option>
+                          <option value="expand">Expand</option>
+                          <option value="solid">Solid</option>
+                        </select>
+                      </label>
+
+                      <label className="block">
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold">Tab Size: <span className="text-indigo-400">{tabSize}</span></span>
+                        </div>
+                        <input 
+                          type="range" 
+                          min="1" 
+                          max="8" 
+                          value={tabSize} 
+                          onChange={(e) => setTabSize(parseInt(e.target.value))}
+                          className="w-full mt-1"
+                        />
+                      </label>
+                    </div>
+                  </>
+                )}
+
+                {activeSettingsTab === "interface" && (
+                  <>
+                    <div className="border-b pb-3 border-transparent">
+                      <h3 className={`text-[13px] font-bold mb-1.5 ${editorTheme === "vs-dark" ? "text-slate-100" : "text-slate-800"}`}>IDE Interface Parameters</h3>
+                      <p className={`text-[11px] ${editorTheme === "vs-dark" ? "text-slate-500" : "text-slate-500"}`}>Adjust IDE layout, sidebars, and panel visibility.</p>
+                    </div>
+                    
+                    <div className={`p-3 rounded-lg border ${
+                      editorTheme === "vs-dark" 
+                        ? "bg-blue-950/20 border-blue-900/40" 
+                        : "bg-blue-50/50 border-blue-200/50"
+                    }`}>
+                      <p className={`text-[11px] ${editorTheme === "vs-dark" ? "text-blue-300" : "text-blue-700"}`}>
+                        Panel visibility, resizing, and layout options are managed from the header controls. Use the toggle buttons in the top toolbar to show/hide sidebars and the bottom panel.
+                      </p>
+                    </div>
+                  </>
+                )}
+
+                {activeSettingsTab === "ai" && (
+                  <>
+                    <div className="border-b pb-3 border-transparent">
+                      <h3 className={`text-[13px] font-bold mb-1.5 ${editorTheme === "vs-dark" ? "text-slate-100" : "text-slate-800"}`}>AI Chat & Copilot Configuration</h3>
+                      <p className={`text-[11px] ${editorTheme === "vs-dark" ? "text-slate-500" : "text-slate-500"}`}>Manage AI assistant and Copilot integrations.</p>
+                    </div>
+
+                    <div className={`p-3 rounded-lg border ${
+                      editorTheme === "vs-dark" 
+                        ? "bg-purple-950/20 border-purple-900/40" 
+                        : "bg-purple-50/50 border-purple-200/50"
+                    }`}>
+                      <p className={`text-[11px] ${editorTheme === "vs-dark" ? "text-purple-300" : "text-purple-700"}`}>
+                        AI features including code completion, chat, and analysis can be accessed from the right sidebar. Use voice input for hands-free interaction and collaborate in real-time.
+                      </p>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className={`px-5 py-3 border-t flex items-center justify-end gap-3 transition-colors duration-250 ${
+              editorTheme === "vs-dark" ? "bg-[#101014] border-slate-800/80" : "bg-[#f9fafb] border-slate-200"
+            }`}>
+              <button
+                onClick={() => setShowSettings(false)}
+                className="bg-indigo-600 hover:bg-indigo-500 text-white px-4.5 py-1.5 rounded-lg text-xs font-semibold cursor-pointer shadow-md hover-scale"
+              >
+                Close Settings
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <ShareModal 
         isOpen={isShareModalOpen} 
         onClose={() => setIsShareModalOpen(false)} 
