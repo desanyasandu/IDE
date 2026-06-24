@@ -3,7 +3,7 @@ import "./App.css";
 
 function App() {
   return (
-    <div className="h-screen w-screen bg-[#1e1e1e] overflow-hidden flex flex-col text-slate-100">
+    <div className="h-screen w-screen overflow-hidden flex flex-col">
       <IDELayout />
     </div>
   );

@@ -9,7 +9,7 @@ function createWindow() {
       nodeIntegration: false,
       contextIsolation: true,
     },
-    title: "Antigravity Studio IDE",
+    title: "Cod Code IDE",
     backgroundColor: "#121215",
     autoHideMenuBar: true
   });

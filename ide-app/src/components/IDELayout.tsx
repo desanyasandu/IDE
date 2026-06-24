@@ -127,6 +127,97 @@ export default function IDELayout() {
   const [rightSidebarOpen, setRightSidebarOpen] = useState(true);
   const [activeLeftTab, setActiveLeftTab] = useState<"explorer" | "search" | "git">("explorer");
 
+  // Panel resizing states
+  const [leftSidebarWidth, setLeftSidebarWidth] = useState(260);
+  const [rightSidebarWidth, setRightSidebarWidth] = useState(380);
+  const [bottomPanelHeight, setBottomPanelHeight] = useState(220);
+  const [bottomPanelOpen, setBottomPanelOpen] = useState(false);
+  const [activeBottomTab, setActiveBottomTab] = useState<"terminal" | "output" | "problems">("terminal");
+  const [terminalInput, setTerminalInput] = useState("");
+  const [terminalHistory, setTerminalHistory] = useState<string[]>([
+    "Microsoft Windows [Version 10.0.22631]",
+    "(c) Microsoft Corporation. All rights reserved.",
+    "",
+    "c:\\Users\\DYD\\Desktop\\IDE\\ide-app> "
+  ]);
+  const [outputLogs, setOutputLogs] = useState<string[]>([]);
+  const [isRunning, setIsRunning] = useState(false);
+
+  const [isResizingLeft, setIsResizingLeft] = useState(false);
+  const [isResizingRight, setIsResizingRight] = useState(false);
+  const [isResizingBottom, setIsResizingBottom] = useState(false);
+
+  // Mouse drag handlers for resizing panels
+  const startResizingLeft = (mouseDownEvent: React.MouseEvent) => {
+    mouseDownEvent.preventDefault();
+    setIsResizingLeft(true);
+    const startX = mouseDownEvent.clientX;
+    const startWidth = leftSidebarWidth;
+
+    const doDrag = (mouseMoveEvent: MouseEvent) => {
+      const newWidth = startWidth + (mouseMoveEvent.clientX - startX);
+      if (newWidth >= 160 && newWidth <= 500) {
+        setLeftSidebarWidth(newWidth);
+      }
+    };
+
+    const stopDrag = () => {
+      setIsResizingLeft(false);
+      document.removeEventListener("mousemove", doDrag);
+      document.removeEventListener("mouseup", stopDrag);
+    };
+
+    document.addEventListener("mousemove", doDrag);
+    document.addEventListener("mouseup", stopDrag);
+  };
+
+  const startResizingRight = (mouseDownEvent: React.MouseEvent) => {
+    mouseDownEvent.preventDefault();
+    setIsResizingRight(true);
+    const startX = mouseDownEvent.clientX;
+    const startWidth = rightSidebarWidth;
+
+    const doDrag = (mouseMoveEvent: MouseEvent) => {
+      const newWidth = startWidth - (mouseMoveEvent.clientX - startX);
+      if (newWidth >= 280 && newWidth <= 650) {
+        setRightSidebarWidth(newWidth);
+      }
+    };
+
+    const stopDrag = () => {
+      setIsResizingRight(false);
+      document.removeEventListener("mousemove", doDrag);
+      document.removeEventListener("mouseup", stopDrag);
+    };
+
+    document.addEventListener("mousemove", doDrag);
+    document.addEventListener("mouseup", stopDrag);
+  };
+
+  const startResizingBottom = (mouseDownEvent: React.MouseEvent) => {
+    mouseDownEvent.preventDefault();
+    setIsResizingBottom(true);
+    const startY = mouseDownEvent.clientY;
+    const startHeight = bottomPanelHeight;
+
+    const doDrag = (mouseMoveEvent: MouseEvent) => {
+      const newHeight = startHeight - (mouseMoveEvent.clientY - startY);
+      if (newHeight >= 100 && newHeight <= 550) {
+        setBottomPanelHeight(newHeight);
+      }
+    };
+
+    const stopDrag = () => {
+      setIsResizingBottom(false);
+      document.removeEventListener("mousemove", doDrag);
+      document.removeEventListener("mouseup", stopDrag);
+    };
+
+    document.addEventListener("mousemove", doDrag);
+    document.addEventListener("mouseup", stopDrag);
+  };
+
+
   // File explorer states
   const [files, setFiles] = useState<Record<string, MockFile>>(initialFiles);
   const [activeFilePath, setActiveFilePath] = useState<string>("src/components/IDELayout.tsx");
@@ -144,6 +235,24 @@ export default function IDELayout() {
   // Editor states
   const [editorTheme, setEditorTheme] = useState<"vs-dark" | "light">("vs-dark");
   const [fontSize, setFontSize] = useState<number>(14);
+  const [showSettings, setShowSettings] = useState<boolean>(false);
+  const [activeSettingsTab, setActiveSettingsTab] = useState<"editor" | "interface" | "ai">("editor");
+  const [minimapEnabled, setMinimapEnabled] = useState<boolean>(true);
+  const [wordWrap, setWordWrap] = useState<"on" | "off">("on");
+  const [tabSize, setTabSize] = useState<number>(2);
+  const [cursorBlinking, setCursorBlinking] = useState<"smooth" | "blink" | "solid" | "expand">("smooth");
+  const [autoSave, setAutoSave] = useState<boolean>(false);
+
+  // Sync theme with body class
+  useEffect(() => {
+    if (editorTheme === "vs-dark") {
+      document.body.classList.remove("light-mode");
+      document.body.classList.add("dark-mode");
+    } else {
+      document.body.classList.remove("dark-mode");
+      document.body.classList.add("light-mode");
+    }
+  }, [editorTheme]);
 
   // UI state for clipboard copy confirmations
   const [copiedCodeId, setCopiedCodeId] = useState<string | null>(null);
@@ -267,9 +376,39 @@ export default function IDELayout() {
     }
   };
 
-  // Run Code placeholder
+  // Run Code logic simulating dynamic console printing
   const handleRunCode = () => {
-    alert(`Executing build and running ${files[activeFilePath].name}... Output directed to dev console.`);
+    if (isRunning) return;
+    
+    setIsRunning(true);
+    setBottomPanelOpen(true);
+    setActiveBottomTab("output");
+    setOutputLogs([]);
+
+    const logLines = [
+      `[${new Date().toLocaleTimeString()}] Starting build process for ${files[activeFilePath].name}...`,
+      `[${new Date().toLocaleTimeString()}] Running typescript compilation & assets optimization...`,
+      `[${new Date().toLocaleTimeString()}] Vite v7.0.4 building for production...`,
+      `[${new Date().toLocaleTimeString()}] ✓ 32 modules transformed.`,
+      `[${new Date().toLocaleTimeString()}] dist/index.html                     0.39 kB │ gzip: 0.25 kB`,
+      `[${new Date().toLocaleTimeString()}] dist/assets/index-D7a8B9cE.css      8.42 kB │ gzip: 2.10 kB`,
+      `[${new Date().toLocaleTimeString()}] dist/assets/index-Bf9e42Ac.js     142.18 kB │ gzip: 46.50 kB`,
+      `[${new Date().toLocaleTimeString()}] ✓ built in 580ms`,
+      `[${new Date().toLocaleTimeString()}] Launching Tauri application container...`,
+      `[${new Date().toLocaleTimeString()}] Cod Code IDE window successfully mounted (Tauri backend initialized).`,
+      `[${new Date().toLocaleTimeString()}] Application is running at http://localhost:1420/`
+    ];
+
+    let currentLine = 0;
+    const interval = setInterval(() => {
+      if (currentLine < logLines.length) {
+        setOutputLogs(prev => [...prev, logLines[currentLine]]);
+        currentLine++;
+      } else {
+        clearInterval(interval);
+        setIsRunning(false);
+      }
+    }, 400);
   };
 
   // AI Prompt Helpers
@@ -413,10 +552,18 @@ export default function IDELayout() {
   return (
     <div 
       data-testid="ide-container" 
-      className="flex flex-col w-full h-full bg-[#121215] text-slate-200 select-none overflow-hidden font-sans gpu-layer"
+      className={`flex flex-col w-full h-full select-none overflow-hidden font-sans gpu-layer transition-colors duration-250 ${
+        editorTheme === "vs-dark" 
+          ? "bg-[#121215] text-slate-200" 
+          : "bg-[#f3f4f6] text-slate-800"
+      }`}
     >
       {/* Top Header / Title Bar */}
-      <header className="h-11 bg-[#1a1a1f] border-b border-[#25252b] flex items-center justify-between px-4 text-xs font-medium text-slate-400 z-30">
+      <header className={`h-11 flex items-center justify-between px-4 text-xs font-medium z-30 border-b transition-colors duration-250 ${
+        editorTheme === "vs-dark"
+          ? "bg-[#1a1a1f] border-[#25252b] text-slate-400"
+          : "bg-[#ffffff] border-[#e5e7eb] text-slate-600 shadow-sm"
+      }`}>
         <div className="flex items-center gap-2">
           <div className="flex gap-1.5 mr-2">
             <span className="w-3 h-3 rounded-full bg-[#ff5f56] inline-block hover:brightness-110 cursor-pointer transition-all"></span>
@@ -425,14 +572,22 @@ export default function IDELayout() {
           </div>
           <div className="flex items-center gap-1.5 ml-2">
             <Terminal className="w-3.5 h-3.5 text-indigo-400" />
-            <span className="font-semibold text-slate-300 tracking-wide font-mono">Antigravity Studio IDE</span>
+            <span className={`font-semibold tracking-wide font-mono transition-colors duration-250 ${editorTheme === "vs-dark" ? "text-slate-300" : "text-slate-700"}`}>Cod Code IDE</span>
           </div>
         </div>
         
         {/* Active file display */}
-        <div className="hidden md:flex items-center gap-2 bg-[#0e0e11]/80 px-4 py-1.5 rounded-full border border-slate-800/80">
-          <span className="text-[9px] text-indigo-400 font-bold uppercase tracking-wider bg-indigo-950/40 px-2 py-0.5 rounded-full border border-indigo-900/40">Active Workspace</span>
-          <span className="text-slate-300 text-xs font-mono select-all">{activeFile.path}</span>
+        <div className={`hidden md:flex items-center gap-2 px-4 py-1.5 rounded-full border transition-colors duration-250 ${
+          editorTheme === "vs-dark"
+            ? "bg-[#0e0e11]/80 border-slate-800/80"
+            : "bg-[#f3f4f6] border-slate-300/80"
+        }`}>
+          <span className={`text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${
+            editorTheme === "vs-dark"
+              ? "text-indigo-400 bg-indigo-950/40 border-indigo-900/40"
+              : "text-indigo-600 bg-indigo-50 border-indigo-200"
+          }`}>Active Workspace</span>
+          <span className={`text-xs font-mono select-all transition-colors duration-250 ${editorTheme === "vs-dark" ? "text-slate-300" : "text-slate-700"}`}>{activeFile?.path}</span>
         </div>
 
         {/* Multiplayer Avatars & Share */}
@@ -456,7 +611,11 @@ export default function IDELayout() {
         <div className="flex items-center gap-2">
           <button 
             onClick={() => setEditorTheme(prev => prev === "vs-dark" ? "light" : "vs-dark")}
-            className="p-1.5 hover:bg-slate-800/50 rounded-lg text-slate-400 hover:text-white hover-scale cursor-pointer"
+            className={`p-1.5 rounded-lg hover-scale cursor-pointer transition-colors duration-250 ${
+              editorTheme === "vs-dark"
+                ? "hover:bg-slate-800/50 text-slate-400 hover:text-white"
+                : "hover:bg-slate-100 text-slate-500 hover:text-slate-800"
+            }`}
             title="Toggle Light/Dark Theme"
           >
             {editorTheme === "vs-dark" ? (
@@ -464,6 +623,19 @@ export default function IDELayout() {
             ) : (
               <Moon className="w-4 h-4 text-indigo-400 transition-transform duration-500 hover:-rotate-12" />
             )}
+          </button>
+
+          <button 
+            type="button"
+            onClick={() => setBottomPanelOpen(prev => !prev)}
+            className={`p-1.5 rounded-lg hover-scale cursor-pointer transition-colors duration-250 ${
+              bottomPanelOpen 
+                ? (editorTheme === "vs-dark" ? "bg-[#25252b] text-indigo-400" : "bg-indigo-50 text-indigo-600") 
+                : (editorTheme === "vs-dark" ? "text-slate-400 hover:bg-slate-800/50 hover:text-white" : "text-slate-500 hover:bg-slate-100 hover:text-slate-800")
+            }`}
+            title="Toggle Bottom Console Panel"
+          >
+            <TerminalSquare className="w-4 h-4" />
           </button>
           
           <button 
@@ -480,7 +652,11 @@ export default function IDELayout() {
       <div className="flex flex-1 w-full overflow-hidden relative">
         
         {/* 1. Activity Bar (Far Left) */}
-        <div className="w-13 bg-[#0d0d10] border-r border-[#25252b] flex flex-col justify-between items-center py-3 text-slate-400 z-20 shrink-0">
+        <div className={`w-13 flex flex-col justify-between items-center py-3 z-20 shrink-0 border-r transition-colors duration-250 ${
+          editorTheme === "vs-dark"
+            ? "bg-[#0d0d10] border-[#25252b] text-slate-400"
+            : "bg-[#f9fafb] border-[#e5e7eb] text-slate-500"
+        }`}>
           <div className="flex flex-col gap-2.5 w-full items-center">
             {/* Explorer Toggle */}
             <button
@@ -494,8 +670,8 @@ export default function IDELayout() {
               }}
               className={`p-2.5 rounded-xl transition-all duration-300 relative hover-scale group cursor-pointer ${
                 leftSidebarOpen && activeLeftTab === "explorer" 
-                  ? "text-indigo-400 bg-[#1a1a24] shadow-inner" 
-                  : "hover:text-slate-200 hover:bg-slate-900/60"
+                  ? (editorTheme === "vs-dark" ? "text-indigo-400 bg-[#1a1a24] shadow-inner" : "text-indigo-600 bg-indigo-50 shadow-sm") 
+                  : (editorTheme === "vs-dark" ? "hover:text-slate-200 hover:bg-slate-900/60" : "hover:text-slate-800 hover:bg-slate-100")
               }`}
               title="File Explorer"
             >
@@ -517,8 +693,8 @@ export default function IDELayout() {
               }}
               className={`p-2.5 rounded-xl transition-all duration-300 relative hover-scale group cursor-pointer ${
                 leftSidebarOpen && activeLeftTab === "search" 
-                  ? "text-indigo-400 bg-[#1a1a24] shadow-inner" 
-                  : "hover:text-slate-200 hover:bg-slate-900/60"
+                  ? (editorTheme === "vs-dark" ? "text-indigo-400 bg-[#1a1a24] shadow-inner" : "text-indigo-600 bg-indigo-50 shadow-sm") 
+                  : (editorTheme === "vs-dark" ? "hover:text-slate-200 hover:bg-slate-900/60" : "hover:text-slate-800 hover:bg-slate-100")
               }`}
               title="Search"
             >
@@ -540,8 +716,8 @@ export default function IDELayout() {
               }}
               className={`p-2.5 rounded-xl transition-all duration-300 relative hover-scale group cursor-pointer ${
                 leftSidebarOpen && activeLeftTab === "git" 
-                  ? "text-indigo-400 bg-[#1a1a24] shadow-inner" 
-                  : "hover:text-slate-200 hover:bg-slate-900/60"
+                  ? (editorTheme === "vs-dark" ? "text-indigo-400 bg-[#1a1a24] shadow-inner" : "text-indigo-600 bg-indigo-50 shadow-sm") 
+                  : (editorTheme === "vs-dark" ? "hover:text-slate-200 hover:bg-slate-900/60" : "hover:text-slate-800 hover:bg-slate-100")
               }`}
               title="Source Control"
             >
@@ -583,8 +759,10 @@ export default function IDELayout() {
               onClick={() => setRightSidebarOpen(prev => !prev)}
               className={`p-2.5 rounded-xl transition-all duration-300 relative cursor-pointer ${
                 rightSidebarOpen 
-                  ? "text-purple-400 bg-purple-950/20 border border-purple-800/40 shadow-[0_0_15px_rgba(168,85,247,0.25)] animate-pulse-glow-purple" 
-                  : "hover:text-purple-400 hover:bg-purple-950/10 hover:border hover:border-purple-950/20"
+                  ? (editorTheme === "vs-dark" 
+                      ? "text-purple-400 bg-purple-950/20 border border-purple-800/40 shadow-[0_0_15px_rgba(168,85,247,0.25)] animate-pulse-glow-purple" 
+                      : "text-purple-600 bg-purple-50 border border-purple-300 shadow-[0_0_15px_rgba(168,85,247,0.25)] animate-pulse-glow-purple")
+                  : (editorTheme === "vs-dark" ? "hover:text-purple-400 hover:bg-purple-950/10" : "hover:text-purple-600 hover:bg-purple-50")
               }`}
               title="Toggle AI Copilot"
             >
@@ -593,10 +771,18 @@ export default function IDELayout() {
           </div>
 
           <div className="flex flex-col gap-2 w-full items-center">
-            <button className="p-2.5 hover:text-slate-200 hover:bg-slate-900/60 rounded-xl transition-all cursor-pointer hover-scale" title="User Profile">
+            <button className={`p-2.5 rounded-xl transition-all cursor-pointer hover-scale ${editorTheme === "vs-dark" ? "hover:text-slate-200 hover:bg-slate-900/60" : "hover:text-slate-800 hover:bg-slate-100"}`} title="User Profile">
               <User className="w-5.5 h-5.5" />
             </button>
-            <button className="p-2.5 hover:text-slate-200 hover:bg-slate-900/60 rounded-xl transition-all cursor-pointer hover-scale" title="Settings">
+            <button 
+              onClick={() => setShowSettings(true)}
+              className={`p-2.5 rounded-xl transition-all cursor-pointer hover-scale ${
+                showSettings 
+                  ? (editorTheme === "vs-dark" ? "text-indigo-400 bg-[#1a1a24] shadow-inner" : "text-indigo-600 bg-indigo-50 shadow-sm") 
+                  : (editorTheme === "vs-dark" ? "hover:text-slate-200 hover:bg-slate-900/60" : "hover:text-slate-800 hover:bg-slate-100")
+              }`} 
+              title="Settings"
+            >
               <Settings className="w-5.5 h-5.5" />
             </button>
           </div>
@@ -604,19 +790,27 @@ export default function IDELayout() {
 
         {/* 2. Left Collapsible Sidebar */}
         <div 
-          className={`bg-[#16161a] border-r border-[#25252b] flex flex-col transition-all duration-300 ease-out overflow-hidden z-10 gpu-layer ${
-            leftSidebarOpen ? "w-64" : "w-0"
+          className={`flex flex-col overflow-hidden z-10 gpu-layer border-r transition-colors duration-250 ${
+            editorTheme === "vs-dark"
+              ? "bg-[#16161a] border-[#25252b]"
+              : "bg-[#f3f4f6] border-[#e5e7eb]"
           }`}
+          style={{ 
+            width: leftSidebarOpen ? `${leftSidebarWidth}px` : 0,
+            transition: isResizingLeft ? 'none' : 'width 300ms ease-out'
+          }}
         >
           {activeLeftTab === "explorer" && (
             <div className="flex flex-col h-full text-xs">
-              <div className="p-3.5 border-b border-[#25252b] flex items-center justify-between font-semibold tracking-wider text-[10px] uppercase text-slate-400">
+              <div className={`p-3.5 flex items-center justify-between font-semibold tracking-wider text-[10px] uppercase border-b transition-colors duration-250 ${
+                editorTheme === "vs-dark" ? "border-[#25252b] text-slate-400" : "border-[#e5e7eb] text-slate-500"
+              }`}>
                 <span>Explorer: Project</span>
                 <div className="flex items-center gap-1.5">
-                  <button className="p-1 hover:bg-slate-800/60 rounded text-slate-400 hover:text-white cursor-pointer transition-colors" title="New File">
+                  <button className={`p-1 rounded cursor-pointer transition-colors ${editorTheme === "vs-dark" ? "hover:bg-slate-800/60 text-slate-400 hover:text-white" : "hover:bg-slate-200 text-slate-600 hover:text-slate-900"}`} title="New File">
                     <Plus className="w-3.5 h-3.5" />
                   </button>
-                  <button className="p-1 hover:bg-slate-800/60 rounded text-slate-400 hover:text-white cursor-pointer transition-colors" title="Refresh">
+                  <button className={`p-1 rounded cursor-pointer transition-colors ${editorTheme === "vs-dark" ? "hover:bg-slate-800/60 text-slate-400 hover:text-white" : "hover:bg-slate-200 text-slate-600 hover:text-slate-900"}`} title="Refresh">
                     <RefreshCw className="w-3.5 h-3.5" />
                   </button>
                 </div>
@@ -628,7 +822,9 @@ export default function IDELayout() {
                 <div>
                   <button 
                     onClick={() => setExplorerExpanded(prev => ({ ...prev, root: !prev.root }))}
-                    className="flex items-center gap-1.5 w-full py-2 px-2 hover:bg-slate-800/30 rounded-lg text-left font-semibold text-slate-300 transition-colors cursor-pointer"
+                    className={`flex items-center gap-1.5 w-full py-2 px-2 rounded-lg text-left font-semibold transition-colors cursor-pointer ${
+                      editorTheme === "vs-dark" ? "hover:bg-slate-800/30 text-slate-300" : "hover:bg-slate-200/50 text-slate-700"
+                    }`}
                   >
                     <ChevronDown className={`w-3.5 h-3.5 text-slate-500 transition-transform duration-250 ${!explorerExpanded.root ? "-rotate-90" : ""}`} />
                     <Folder className="w-4.5 h-4.5 text-amber-500 fill-amber-500/10 shrink-0" />
@@ -636,12 +832,14 @@ export default function IDELayout() {
                   </button>
 
                   {explorerExpanded.root && (
-                    <div className="pl-4 mt-0.5 border-l border-slate-800/60 ml-4.5 flex flex-col gap-0.5">
+                    <div className={`pl-4 mt-0.5 border-l ml-4.5 flex flex-col gap-0.5 ${editorTheme === "vs-dark" ? "border-slate-800/60" : "border-slate-200"}`}>
                       {/* Src Directory */}
                       <div>
                         <button
                           onClick={() => setExplorerExpanded(prev => ({ ...prev, src: !prev.src }))}
-                          className="flex items-center gap-1.5 w-full py-1.5 px-2 hover:bg-slate-800/30 rounded-lg text-left text-slate-300 transition-colors cursor-pointer"
+                          className={`flex items-center gap-1.5 w-full py-1.5 px-2 rounded-lg text-left transition-colors cursor-pointer ${
+                            editorTheme === "vs-dark" ? "hover:bg-slate-800/30 text-slate-300" : "hover:bg-slate-200/50 text-slate-700"
+                          }`}
                         >
                           <ChevronDown className={`w-3.5 h-3.5 text-slate-500 transition-transform duration-250 ${!explorerExpanded.src ? "-rotate-90" : ""}`} />
                           <Folder className="w-4 h-4 text-indigo-400 fill-indigo-400/10 shrink-0" />
@@ -649,12 +847,14 @@ export default function IDELayout() {
                         </button>
 
                         {explorerExpanded.src && (
-                          <div className="pl-4 border-l border-slate-800/60 ml-4 flex flex-col gap-0.5">
+                          <div className={`pl-4 border-l ml-4 flex flex-col gap-0.5 ${editorTheme === "vs-dark" ? "border-slate-800/60" : "border-slate-200"}`}>
                             {/* Components Directory */}
                             <div>
                               <button
                                 onClick={() => setExplorerExpanded(prev => ({ ...prev, components: !prev.components }))}
-                                className="flex items-center gap-1.5 w-full py-1.5 px-2 hover:bg-slate-800/30 rounded-lg text-left text-slate-300 transition-colors cursor-pointer"
+                                className={`flex items-center gap-1.5 w-full py-1.5 px-2 rounded-lg text-left transition-colors cursor-pointer ${
+                                  editorTheme === "vs-dark" ? "hover:bg-slate-800/30 text-slate-300" : "hover:bg-slate-200/50 text-slate-700"
+                                }`}
                               >
                                 <ChevronDown className={`w-3.5 h-3.5 text-slate-500 transition-transform duration-250 ${!explorerExpanded.components ? "-rotate-90" : ""}`} />
                                 <Folder className="w-4 h-4 text-purple-400 fill-purple-400/10 shrink-0" />
@@ -662,14 +862,16 @@ export default function IDELayout() {
                               </button>
 
                               {explorerExpanded.components && (
-                                <div className="pl-4 border-l border-slate-800/60 ml-4 flex flex-col gap-0.5">
+                                <div className={`pl-4 border-l ml-4 flex flex-col gap-0.5 ${editorTheme === "vs-dark" ? "border-slate-800/60" : "border-slate-200"}`}>
                                   {/* IDELayout.tsx */}
                                   <button
                                     onClick={() => handleOpenFile("src/components/IDELayout.tsx")}
                                     className={`flex items-center gap-2 w-full py-1.5 px-2.5 rounded-lg text-left cursor-pointer transition-all duration-200 ${
                                       activeFilePath === "src/components/IDELayout.tsx" 
-                                        ? "explorer-item-active text-white font-medium shadow-md shadow-indigo-950/20" 
-                                        : "hover:bg-slate-800/30 text-slate-400 hover:text-slate-200"
+                                        ? (editorTheme === "vs-dark" 
+                                            ? "explorer-item-active text-white font-medium shadow-md shadow-indigo-950/20" 
+                                            : "bg-indigo-100/60 border-l-2 border-indigo-600 text-indigo-800 font-medium shadow-sm") 
+                                        : (editorTheme === "vs-dark" ? "hover:bg-slate-800/30 text-slate-400 hover:text-slate-200" : "hover:bg-slate-200/50 text-slate-600 hover:text-slate-900")
                                     }`}
                                   >
                                     {getFileIcon("src/components/IDELayout.tsx")}
@@ -684,8 +886,10 @@ export default function IDELayout() {
                               onClick={() => handleOpenFile("src/App.tsx")}
                               className={`flex items-center gap-2 w-full py-1.5 px-2.5 rounded-lg text-left cursor-pointer transition-all duration-200 ${
                                 activeFilePath === "src/App.tsx" 
-                                  ? "explorer-item-active text-white font-medium shadow-md shadow-indigo-950/20" 
-                                  : "hover:bg-slate-800/30 text-slate-400 hover:text-slate-200"
+                                  ? (editorTheme === "vs-dark" 
+                                      ? "explorer-item-active text-white font-medium shadow-md shadow-indigo-950/20" 
+                                      : "bg-indigo-100/60 border-l-2 border-indigo-600 text-indigo-800 font-medium shadow-sm") 
+                                  : (editorTheme === "vs-dark" ? "hover:bg-slate-800/30 text-slate-400 hover:text-slate-200" : "hover:bg-slate-200/50 text-slate-600 hover:text-slate-900")
                               }`}
                             >
                               {getFileIcon("src/App.tsx")}
@@ -697,8 +901,10 @@ export default function IDELayout() {
                               onClick={() => handleOpenFile("src/index.css")}
                               className={`flex items-center gap-2 w-full py-1.5 px-2.5 rounded-lg text-left cursor-pointer transition-all duration-200 ${
                                 activeFilePath === "src/index.css" 
-                                  ? "explorer-item-active text-white font-medium shadow-md shadow-indigo-950/20" 
-                                  : "hover:bg-slate-800/30 text-slate-400 hover:text-slate-200"
+                                  ? (editorTheme === "vs-dark" 
+                                      ? "explorer-item-active text-white font-medium shadow-md shadow-indigo-950/20" 
+                                      : "bg-indigo-100/60 border-l-2 border-indigo-600 text-indigo-800 font-medium shadow-sm") 
+                                  : (editorTheme === "vs-dark" ? "hover:bg-slate-800/30 text-slate-400 hover:text-slate-200" : "hover:bg-slate-200/50 text-slate-600 hover:text-slate-900")
                               }`}
                             >
                               {getFileIcon("src/index.css")}
@@ -713,8 +919,10 @@ export default function IDELayout() {
                         onClick={() => handleOpenFile("package.json")}
                         className={`flex items-center gap-2 w-full py-1.5 px-2.5 rounded-lg text-left cursor-pointer transition-all duration-200 ${
                           activeFilePath === "package.json" 
-                            ? "explorer-item-active text-white font-medium shadow-md shadow-indigo-950/20" 
-                            : "hover:bg-slate-800/30 text-slate-400 hover:text-slate-200"
+                            ? (editorTheme === "vs-dark" 
+                                ? "explorer-item-active text-white font-medium shadow-md shadow-indigo-950/20" 
+                                : "bg-indigo-100/60 border-l-2 border-indigo-600 text-indigo-800 font-medium shadow-sm") 
+                            : (editorTheme === "vs-dark" ? "hover:bg-slate-800/30 text-slate-400 hover:text-slate-200" : "hover:bg-slate-200/50 text-slate-600 hover:text-slate-900")
                         }`}
                       >
                         {getFileIcon("package.json")}
@@ -729,32 +937,44 @@ export default function IDELayout() {
 
           {activeLeftTab === "search" && (
             <div className="flex flex-col h-full p-4 text-xs">
-              <span className="font-semibold uppercase text-slate-400 text-[9px] tracking-wider mb-2.5">Search Workspace</span>
+              <span className={`font-semibold uppercase text-[9px] tracking-wider mb-2.5 ${editorTheme === "vs-dark" ? "text-slate-400" : "text-slate-500"}`}>Search Workspace</span>
               <input 
                 type="text" 
                 placeholder="Search text..." 
-                className="w-full bg-[#1b1b22] border border-[#2d2d35] text-white rounded-lg px-3 py-2 focus:border-indigo-500 mb-4 focus:ring-1 focus:ring-indigo-500 transition-all font-mono"
+                className={`w-full rounded-lg px-3 py-2 mb-4 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all font-mono text-xs ${
+                  editorTheme === "vs-dark" 
+                    ? "bg-[#1b1b22] border-[#2d2d35] text-white" 
+                    : "bg-white border-slate-300 text-slate-800"
+                }`}
               />
-              <span className="text-slate-500 text-center mt-4">Type to search for text inside files.</span>
+              <span className={`text-center mt-4 ${editorTheme === "vs-dark" ? "text-slate-500" : "text-slate-400"}`}>Type to search for text inside files.</span>
             </div>
           )}
 
           {activeLeftTab === "git" && (
             <div className="flex flex-col h-full p-4 text-xs">
-              <span className="font-semibold uppercase text-slate-400 text-[9px] tracking-wider mb-2.5">Source Control</span>
-              <div className="bg-[#1b1b22] border border-[#2d2d35] p-3.5 rounded-xl mb-4 shadow-inner">
-                <p className="font-semibold text-indigo-400 mb-2 flex items-center gap-1.5">
-                  <Zap className="w-3.5 h-3.5 text-indigo-400 fill-indigo-400/20" />
+              <span className={`font-semibold uppercase text-[9px] tracking-wider mb-2.5 ${editorTheme === "vs-dark" ? "text-slate-400" : "text-slate-500"}`}>Source Control</span>
+              <div className={`p-3.5 rounded-xl mb-4 shadow-inner border ${
+                editorTheme === "vs-dark" 
+                  ? "bg-[#1b1b22] border-[#2d2d35]" 
+                  : "bg-white border-slate-200"
+              }`}>
+                <p className={`font-semibold mb-2 flex items-center gap-1.5 ${editorTheme === "vs-dark" ? "text-indigo-400" : "text-indigo-600"}`}>
+                  <Zap className="w-3.5 h-3.5 fill-current" />
                   <span>1 Workspace Change</span>
                 </p>
-                <div className="flex items-center justify-between text-[11px] text-slate-300 py-1 font-mono">
+                <div className={`flex items-center justify-between text-[11px] py-1 font-mono ${editorTheme === "vs-dark" ? "text-slate-300" : "text-slate-600"}`}>
                   <span className="truncate">src/components/IDELayout.tsx</span>
                   <span className="text-amber-500 font-bold bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/25">M</span>
                 </div>
               </div>
               <textarea 
                 placeholder="Commit message..." 
-                className="w-full bg-[#1b1b22] border border-[#2d2d35] text-white rounded-xl p-3 focus:border-indigo-500 h-22 text-xs mb-3 resize-none focus:ring-1 focus:ring-indigo-500 transition-all"
+                className={`w-full rounded-xl p-3 h-22 text-xs mb-3 resize-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all ${
+                  editorTheme === "vs-dark" 
+                    ? "bg-[#1b1b22] border-[#2d2d35] text-white" 
+                    : "bg-white border-slate-300 text-slate-800"
+                }`}
               />
               <button className="w-full bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 text-white rounded-xl py-2.5 font-semibold transition-all shadow-md shadow-indigo-950/20 hover-scale cursor-pointer">
                 Commit & Push (main)
@@ -763,102 +983,348 @@ export default function IDELayout() {
           )}
         </div>
 
+        {/* Left Sidebar drag divider */}
+        {leftSidebarOpen && (
+          <div
+            onMouseDown={startResizingLeft}
+            className="w-1 hover:w-1.5 bg-transparent hover:bg-indigo-500/50 active:bg-indigo-500 transition-all cursor-col-resize z-30 shrink-0"
+            title="Resize Sidebar"
+          />
+        )}
+
         {/* 3. Editor Workspace Area (Center) */}
-        <div className="flex-1 flex flex-col min-w-0 bg-[#131317] relative">
+        <div className={`flex-1 flex flex-col min-w-0 relative h-full transition-colors duration-250 ${
+          editorTheme === "vs-dark" ? "bg-[#131317]" : "bg-[#ffffff]"
+        }`}>
           
-          {/* Tab bar */}
-          <div className="h-10 bg-[#16161a] flex items-center overflow-x-auto border-b border-[#1b1b20] select-none scrollbar-none z-10 shrink-0">
-            {openTabs.map(tabPath => {
-              const file = files[tabPath] || { name: tabPath };
-              const isActive = tabPath === activeFilePath;
-              return (
-                <div
-                  key={tabPath}
-                  onClick={() => setActiveFilePath(tabPath)}
-                  className={`group h-full flex items-center gap-2.5 px-4.5 py-2 text-xs border-r border-[#1f1f25] cursor-pointer transition-all duration-300 relative ${
-                    isActive 
-                      ? "bg-[#131317] text-white font-medium border-t-2 border-indigo-500 shadow-inner" 
-                      : "bg-[#18181c]/60 text-slate-400 hover:bg-[#18181c] hover:text-slate-200"
+          {/* Top Editor Area */}
+          <div className="flex-1 flex flex-col min-h-0 w-full relative">
+            {/* Tab bar */}
+            <div className={`h-10 flex items-center overflow-x-auto select-none scrollbar-none z-10 shrink-0 border-b transition-colors duration-250 ${
+              editorTheme === "vs-dark" ? "bg-[#16161a] border-[#1b1b20]" : "bg-[#f3f4f6] border-[#e5e7eb]"
+            }`}>
+              {openTabs.map(tabPath => {
+                const file = files[tabPath] || { name: tabPath };
+                const isActive = tabPath === activeFilePath;
+                return (
+                  <div
+                    key={tabPath}
+                    onClick={() => setActiveFilePath(tabPath)}
+                    className={`group h-full flex items-center gap-2.5 px-4.5 py-2 text-xs cursor-pointer transition-all duration-300 relative border-r ${
+                      isActive 
+                        ? (editorTheme === "vs-dark" 
+                            ? "bg-[#131317] text-white font-medium border-t-2 border-indigo-500 shadow-inner border-r-[#1f1f25]" 
+                            : "bg-[#ffffff] text-slate-800 font-medium border-t-2 border-indigo-600 border-r-[#e5e7eb]") 
+                        : (editorTheme === "vs-dark" 
+                            ? "bg-[#18181c]/60 text-slate-400 hover:bg-[#18181c] hover:text-slate-200 border-r-[#1f1f25]" 
+                            : "bg-[#e5e7eb]/60 text-slate-500 hover:bg-[#e5e7eb] hover:text-slate-800 border-r-[#e5e7eb]")
+                    }`}
+                  >
+                    {getFileIcon(file.name)}
+                    <span className="font-mono text-[11px]">{file.name}</span>
+                    <button
+                      onClick={(e) => handleCloseTab(e, tabPath)}
+                      className="p-0.5 rounded-full text-slate-500 hover:text-white hover:bg-slate-800/80 transition-colors ml-1"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Breadcrumb line */}
+            <div className={`h-6.5 flex items-center px-4.5 text-[10px] font-mono gap-1.5 shrink-0 border-b transition-colors duration-250 ${
+              editorTheme === "vs-dark" ? "bg-[#131317] border-slate-900 text-slate-500" : "bg-[#ffffff] border-[#e5e7eb] text-slate-600"
+            }`}>
+              <span className="hover:text-slate-300 cursor-pointer">ide-app</span>
+              <ChevronRight className="w-3 h-3" />
+              <span className="hover:text-slate-300 cursor-pointer">src</span>
+              <ChevronRight className="w-3 h-3" />
+              {activeFile?.path?.includes("components") && (
+                <>
+                  <span className="hover:text-slate-300 cursor-pointer">components</span>
+                  <ChevronRight className="w-3 h-3" />
+                </>
+              )}
+              <span className={`font-medium ${editorTheme === "vs-dark" ? "text-indigo-400" : "text-indigo-600"}`}>{activeFile?.name}</span>
+            </div>
+
+            {/* Monaco Editor Container */}
+            <div className={`flex-1 w-full relative ${editorTheme === "vs-dark" ? "bg-[#1e1e1e]" : "bg-white"}`}>
+              <Editor
+                height="100%"
+                path={activeFile.path}
+                language={activeFile.language}
+                value={activeFile.content}
+                theme={editorTheme}
+                onChange={handleEditorChange}
+                options={{
+                  fontSize: fontSize,
+                  minimap: { enabled: minimapEnabled },
+                  wordWrap: wordWrap,
+                  tabSize: tabSize,
+                  cursorBlinking: cursorBlinking,
+                  scrollbar: {
+                    verticalScrollbarSize: 6,
+                    horizontalScrollbarSize: 6,
+                    vertical: "visible",
+                    horizontal: "visible"
+                  },
+                  lineNumbers: "on",
+                  roundedSelection: true,
+                  scrollBeyondLastLine: false,
+                  readOnly: false,
+                  automaticLayout: true,
+                  cursorSmoothCaretAnimation: "on",
+                  fontFamily: "Fira Code, Menlo, Monaco, Consolas, monospace",
+                  fontLigatures: true,
+                  renderLineHighlight: "all",
+                  quickSuggestions: { other: true, comments: true, strings: true },
+                  suggestOnTriggerCharacters: true
+                }}
+              />
+            </div>
+
+            {/* Code actions bar / Overlay options */}
+            <div className={`absolute bottom-4 right-6 flex items-center gap-2 backdrop-blur py-1.5 px-3 rounded-xl shadow-xl text-[11px] z-10 select-none transition-colors duration-250 ${
+              editorTheme === "vs-dark" 
+                ? "bg-[#1b1b22]/90 border border-slate-800/80 text-slate-300 shadow-black/40" 
+                : "bg-white/95 border border-slate-200 text-slate-600 shadow-slate-200/40"
+            }`}>
+              <span className={`font-bold uppercase text-[9px] tracking-wide pr-1.5 border-r mr-1 ${
+                editorTheme === "vs-dark" ? "text-slate-500 border-slate-800" : "text-slate-400 border-slate-200"
+              }`}>Font Scale</span>
+              <button 
+                onClick={() => setFontSize(prev => Math.max(10, prev - 1))}
+                className={`p-1 rounded-md w-5 h-5 flex items-center justify-center font-bold font-mono transition-colors cursor-pointer ${
+                  editorTheme === "vs-dark" ? "hover:bg-slate-800 text-slate-300 hover:text-white" : "hover:bg-slate-100 text-slate-500 hover:text-slate-800"
+                }`}
+              >
+                -
+              </button>
+              <span className={`font-mono font-semibold ${editorTheme === "vs-dark" ? "text-indigo-400" : "text-indigo-600"}`}>{fontSize}px</span>
+              <button 
+                onClick={() => setFontSize(prev => Math.min(22, prev + 1))}
+                className={`p-1 rounded-md w-5 h-5 flex items-center justify-center font-bold font-mono transition-colors cursor-pointer ${
+                  editorTheme === "vs-dark" ? "hover:bg-slate-800 text-slate-300 hover:text-white" : "hover:bg-slate-100 text-slate-500 hover:text-slate-800"
+                }`}
+              >
+                +
+              </button>
+            </div>
+          </div>
+
+          {/* Bottom panel divider */}
+          {bottomPanelOpen && (
+            <div
+              onMouseDown={startResizingBottom}
+              className="h-1 hover:h-1.5 bg-transparent hover:bg-indigo-500/50 active:bg-indigo-500 transition-all cursor-row-resize z-30 shrink-0"
+              title="Resize Bottom Panel"
+            />
+          )}
+
+          {/* Bottom Panel */}
+          <div
+            className={`flex flex-col overflow-hidden z-20 border-t transition-colors duration-250 ${
+              editorTheme === "vs-dark"
+                ? "bg-[#0d0d11] border-[#202025]"
+                : "bg-white border-[#e5e7eb]"
+            }`}
+            style={{ 
+              height: bottomPanelOpen ? `${bottomPanelHeight}px` : 0,
+              transition: isResizingBottom ? 'none' : 'height 300ms ease-out'
+            }}
+          >
+            {/* Bottom Panel Header */}
+            <div className={`h-9 flex items-center justify-between px-4 text-xs font-semibold select-none shrink-0 border-b transition-colors duration-250 ${
+              editorTheme === "vs-dark"
+                ? "bg-[#141418] border-[#202025] text-slate-400"
+                : "bg-[#f3f4f6] border-[#e5e7eb] text-slate-500"
+            }`}>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setActiveBottomTab("terminal")}
+                  className={`flex items-center gap-1.5 pb-1 border-b-2 transition-all cursor-pointer ${
+                    activeBottomTab === "terminal" 
+                      ? (editorTheme === "vs-dark" ? "text-indigo-400 border-indigo-500 font-bold" : "text-indigo-600 border-indigo-600 font-bold") 
+                      : (editorTheme === "vs-dark" ? "border-transparent hover:text-slate-200" : "border-transparent hover:text-slate-800")
                   }`}
                 >
-                  {getFileIcon(file.name)}
-                  <span className="font-mono text-[11px]">{file.name}</span>
-                  <button
-                    onClick={(e) => handleCloseTab(e, tabPath)}
-                    className="p-0.5 rounded-full text-slate-500 hover:text-white hover:bg-slate-800/80 transition-colors ml-1"
+                  <Terminal className="w-3.5 h-3.5" />
+                  <span>Terminal</span>
+                </button>
+                
+                <button
+                  type="button"
+                  onClick={() => setActiveBottomTab("output")}
+                  className={`flex items-center gap-1.5 pb-1 border-b-2 transition-all cursor-pointer ${
+                    activeBottomTab === "output" 
+                      ? (editorTheme === "vs-dark" ? "text-indigo-400 border-indigo-500 font-bold" : "text-indigo-600 border-indigo-600 font-bold") 
+                      : (editorTheme === "vs-dark" ? "border-transparent hover:text-slate-200" : "border-transparent hover:text-slate-800")
+                  }`}
+                >
+                  <TerminalSquare className="w-3.5 h-3.5" />
+                  <span>Output</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveBottomTab("problems")}
+                  className={`flex items-center gap-1.5 pb-1 border-b-2 transition-all cursor-pointer ${
+                    activeBottomTab === "problems" 
+                      ? (editorTheme === "vs-dark" ? "text-indigo-400 border-indigo-500 font-bold" : "text-indigo-600 border-indigo-600 font-bold") 
+                      : (editorTheme === "vs-dark" ? "border-transparent hover:text-slate-200" : "border-transparent hover:text-slate-800")
+                  }`}
+                >
+                  <Bug className="w-3.5 h-3.5" />
+                  <span>Problems</span>
+                </button>
+              </div>
+
+              {/* Window action buttons (Clear & Close) */}
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (activeBottomTab === "terminal") {
+                      setTerminalHistory([
+                        "Microsoft Windows [Version 10.0.22631]",
+                        "(c) Microsoft Corporation. All rights reserved.",
+                        "",
+                        "c:\\Users\\DYD\\Desktop\\IDE\\ide-app> "
+                      ]);
+                    } else if (activeBottomTab === "output") {
+                      setOutputLogs([]);
+                    }
+                  }}
+                  className={`p-1 rounded cursor-pointer transition-colors ${
+                    editorTheme === "vs-dark"
+                      ? "hover:bg-slate-800 text-slate-400 hover:text-white"
+                      : "hover:bg-slate-200 text-slate-500 hover:text-slate-800"
+                  }`}
+                  title="Clear Console Output"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBottomPanelOpen(false)}
+                  className={`p-1 rounded cursor-pointer transition-colors ${
+                    editorTheme === "vs-dark"
+                      ? "hover:bg-slate-800 text-slate-400 hover:text-white"
+                      : "hover:bg-slate-200 text-slate-500 hover:text-slate-800"
+                  }`}
+                  title="Close Panel"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Bottom Panel Content */}
+            <div className="flex-1 overflow-y-auto p-3 font-mono text-[11px] leading-relaxed scrollbar-thin select-text">
+              {activeBottomTab === "terminal" && (
+                <div className={`h-full flex flex-col ${editorTheme === "vs-dark" ? "text-slate-300" : "text-slate-700"}`}>
+                  <div className="flex-1 overflow-y-auto mb-1 whitespace-pre-wrap">
+                    {terminalHistory.map((line, idx) => (
+                      <div key={idx}>{line}</div>
+                    ))}
+                  </div>
+                  {/* Interactive Input Line */}
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      if (!terminalInput.trim()) return;
+                      const cmd = terminalInput.trim();
+                      let reply = "";
+                      
+                      if (cmd === "cls" || cmd === "clear") {
+                        setTerminalHistory(["c:\\Users\\DYD\\Desktop\\IDE\\ide-app> "]);
+                        setTerminalInput("");
+                        return;
+                      } else if (cmd === "npm run dev" || cmd === "npm start" || cmd === "run") {
+                        handleRunCode();
+                        setTerminalInput("");
+                        return;
+                      } else if (cmd === "git status") {
+                        reply = "On branch main\nYour branch is up to date with 'origin/main'.\n\nChanges not staged for commit:\n  (use \"git add <file>...\" to update what will be committed)\n  (use \"git restore <file>...\" to discard changes in working directory)\n\tmodified:   src/components/IDELayout.tsx\n\nno changes added to commit (use \"git add\" and/or \"git commit -a\")";
+                      } else if (cmd.startsWith("help")) {
+                        reply = "Available commands: cls, clear, npm run dev, run, git status, help, node -v, echo <text>";
+                      } else if (cmd === "node -v") {
+                        reply = "v20.11.0";
+                      } else if (cmd.startsWith("echo ")) {
+                        reply = cmd.substring(5);
+                      } else {
+                        reply = `'${cmd.split(" ")[0]}' is not recognized as an internal or external command,\noperable program or batch file. Type 'help' for commands.`;
+                      }
+
+                      setTerminalHistory(prev => {
+                        const hist = [...prev];
+                        if (hist.length > 0) {
+                          hist[hist.length - 1] = hist[hist.length - 1] + cmd;
+                        }
+                        if (reply) {
+                          hist.push(reply);
+                        }
+                        hist.push("c:\\Users\\DYD\\Desktop\\IDE\\ide-app> ");
+                        return hist;
+                      });
+                      setTerminalInput("");
+                    }}
+                    className="flex items-center"
                   >
-                    <X className="w-3 h-3" />
-                  </button>
+                    <span className="shrink-0">c:\Users\DYD\Desktop\IDE\ide-app&gt;&nbsp;</span>
+                    <input
+                      type="text"
+                      value={terminalInput}
+                      onChange={(e) => setTerminalInput(e.target.value)}
+                      className={`flex-1 bg-transparent focus:outline-none border-none outline-none ${
+                        editorTheme === "vs-dark" ? "text-slate-200 caret-indigo-400" : "text-slate-800 caret-indigo-650"
+                      }`}
+                    />
+                  </form>
                 </div>
-              );
-            })}
-          </div>
+              )}
 
-          {/* Breadcrumb line */}
-          <div className="h-6.5 bg-[#131317] border-b border-slate-900 flex items-center px-4.5 text-[10px] text-slate-500 font-mono gap-1.5 shrink-0">
-            <span className="hover:text-slate-300 cursor-pointer">ide-app</span>
-            <ChevronRight className="w-3 h-3" />
-            <span className="hover:text-slate-300 cursor-pointer">src</span>
-            <ChevronRight className="w-3 h-3" />
-            {activeFile.path.includes("components") && (
-              <>
-                <span className="hover:text-slate-300 cursor-pointer">components</span>
-                <ChevronRight className="w-3 h-3" />
-              </>
-            )}
-            <span className="text-indigo-400 font-medium">{activeFile.name}</span>
-          </div>
+              {activeBottomTab === "output" && (
+                <div className={`whitespace-pre-wrap ${editorTheme === "vs-dark" ? "text-slate-300" : "text-slate-700"}`}>
+                  {outputLogs.length === 0 ? (
+                    <span className="text-slate-500 italic select-none">No build logs. Click 'Run App' in the top bar to run compilation...</span>
+                  ) : (
+                    outputLogs.map((log, idx) => {
+                      if (!log) return null;
+                      const hasCheck = log.includes("✓");
+                      const hasLaunch = log.includes("Launching") || log.includes("Running");
+                      return (
+                        <div 
+                          key={idx} 
+                          className={
+                            hasCheck 
+                              ? (editorTheme === "vs-dark" ? "text-emerald-400" : "text-emerald-600 font-semibold") 
+                              : hasLaunch 
+                              ? (editorTheme === "vs-dark" ? "text-indigo-400" : "text-indigo-600 font-semibold") 
+                              : (editorTheme === "vs-dark" ? "text-slate-300" : "text-slate-700")
+                          }
+                        >
+                          {log}
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              )}
 
-          {/* Monaco Editor Container */}
-          <div className="flex-1 w-full relative bg-[#1e1e1e]">
-            <Editor
-              height="100%"
-              path={activeFile.path}
-              language={activeFile.language}
-              value={activeFile.content}
-              theme={editorTheme}
-              onChange={handleEditorChange}
-              options={{
-                fontSize: fontSize,
-                minimap: { enabled: true },
-                scrollbar: {
-                  verticalScrollbarSize: 6,
-                  horizontalScrollbarSize: 6,
-                  vertical: "visible",
-                  horizontal: "visible"
-                },
-                lineNumbers: "on",
-                roundedSelection: true,
-                scrollBeyondLastLine: false,
-                readOnly: false,
-                automaticLayout: true,
-                cursorBlinking: "smooth",
-                cursorSmoothCaretAnimation: "on",
-                fontFamily: "Fira Code, Menlo, Monaco, Consolas, monospace",
-                fontLigatures: true,
-                renderLineHighlight: "all",
-                quickSuggestions: { other: true, comments: true, strings: true },
-                suggestOnTriggerCharacters: true
-              }}
-            />
-          </div>
-
-          {/* Code actions bar / Overlay options */}
-          <div className="absolute bottom-4 right-6 flex items-center gap-2 bg-[#1b1b22]/90 backdrop-blur border border-slate-800/80 py-1.5 px-3 rounded-xl shadow-xl shadow-black/40 text-[11px] text-slate-300 z-10 select-none">
-            <span className="text-slate-500 font-bold uppercase text-[9px] tracking-wide pr-1.5 border-r border-slate-800 mr-1">Font Scale</span>
-            <button 
-              onClick={() => setFontSize(prev => Math.max(10, prev - 1))}
-              className="p-1 hover:bg-slate-800 rounded-md w-5 h-5 flex items-center justify-center font-bold font-mono transition-colors cursor-pointer"
-            >
-              -
-            </button>
-            <span className="font-mono text-indigo-400 font-semibold">{fontSize}px</span>
-            <button 
-              onClick={() => setFontSize(prev => Math.min(22, prev + 1))}
-              className="p-1 hover:bg-slate-800 rounded-md w-5 h-5 flex items-center justify-center font-bold font-mono transition-colors cursor-pointer"
-            >
-              +
-            </button>
+              {activeBottomTab === "problems" && (
+                <div className={`select-none flex flex-col items-center justify-center h-full gap-2 ${
+                  editorTheme === "vs-dark" ? "text-slate-400" : "text-slate-500"
+                }`}>
+                  <Bug className={`w-8 h-8 animate-pulse ${editorTheme === "vs-dark" ? "text-slate-600" : "text-slate-300"}`} />
+                  <span>No problems have been detected in the workspace. Clean build!</span>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Floating Call UI Panel */}
@@ -937,27 +1403,48 @@ export default function IDELayout() {
           )}
         </div>
 
+        {/* Right Sidebar drag divider */}
+        {rightSidebarOpen && (
+          <div
+            onMouseDown={startResizingRight}
+            className="w-1 hover:w-1.5 bg-transparent hover:bg-purple-500/50 active:bg-purple-500 transition-all cursor-col-resize z-30 shrink-0"
+            title="Resize AI Panel"
+          />
+        )}
+
         {/* 4. Right Collapsible Sidebar (AI Chat Interface) */}
         <div 
-          className={`bg-[#121216] border-l border-[#25252b] flex flex-col transition-all duration-300 ease-out overflow-hidden relative z-10 gpu-layer ${
-            rightSidebarOpen ? "w-[380px]" : "w-0"
+          className={`flex flex-col overflow-hidden relative z-10 gpu-layer border-l transition-colors duration-250 ${
+            editorTheme === "vs-dark"
+              ? "bg-[#121216] border-[#25252b]"
+              : "bg-[#f9fafb] border-[#e5e7eb]"
           }`}
+          style={{ 
+            width: rightSidebarOpen ? `${rightSidebarWidth}px` : 0,
+            transition: isResizingRight ? 'none' : 'width 300ms ease-out'
+          }}
         >
           {/* Header with gradient flow */}
-          <div className="p-4 bg-gradient-to-r from-[#17171d] via-[#1a1a24] to-[#121217] border-b border-[#25252b] flex items-center justify-between">
+          <div className={`p-4 flex items-center justify-between border-b transition-colors duration-250 ${
+            editorTheme === "vs-dark"
+              ? "bg-gradient-to-r from-[#17171d] via-[#1a1a24] to-[#121217] border-[#25252b]"
+              : "bg-gradient-to-r from-[#f9fafb] via-[#f3f4f6] to-[#f9fafb] border-[#e5e7eb]"
+          }`}>
             <div className="flex items-center gap-2.5">
               <div className="p-1.5 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400 shadow-[0_0_10px_rgba(168,85,247,0.15)] animate-pulse-glow-purple">
                 <Sparkles className="w-4.5 h-4.5" />
               </div>
               <div>
-                <span className="text-xs font-bold uppercase tracking-wider text-purple-400 block">System AI</span>
-                <span className="text-[13px] font-bold text-slate-100 block -mt-0.5">Coding Assistant</span>
+                <span className="text-xs font-bold uppercase tracking-wider text-purple-500 block">System AI</span>
+                <span className={`text-[13px] font-bold block -mt-0.5 transition-colors duration-250 ${editorTheme === "vs-dark" ? "text-slate-100" : "text-slate-800"}`}>Coding Assistant</span>
               </div>
             </div>
             
             <button
               onClick={() => setRightSidebarOpen(false)}
-              className="p-1.5 hover:bg-slate-800/60 rounded-xl text-slate-400 hover:text-white transition-colors cursor-pointer"
+              className={`p-1.5 rounded-xl transition-colors cursor-pointer ${
+                editorTheme === "vs-dark" ? "hover:bg-slate-800/60 text-slate-400 hover:text-white" : "hover:bg-slate-200 text-slate-500 hover:text-slate-800"
+              }`}
               title="Close Copilot Panel"
             >
               <X className="w-4.5 h-4.5" />
@@ -965,7 +1452,11 @@ export default function IDELayout() {
           </div>
 
           {/* AI Status Indicator Bar */}
-          <div className="px-4 py-2 border-b border-[#202025] bg-[#0c0c0f]/80 flex items-center justify-between text-xs text-slate-400">
+          <div className={`px-4 py-2 flex items-center justify-between text-xs border-b transition-colors duration-250 ${
+            editorTheme === "vs-dark"
+              ? "border-[#202025] bg-[#0c0c0f]/80 text-slate-400"
+              : "border-[#e5e7eb] bg-[#f3f4f6] text-slate-500"
+          }`}>
             <div className="flex items-center gap-2">
               <span className="relative flex h-2 w-2">
                 {aiStatus !== "idle" && (
@@ -981,14 +1472,14 @@ export default function IDELayout() {
                     : "bg-cyan-400"
                 }`}></span>
               </span>
-              <span className="font-semibold text-slate-300">
+              <span className={`font-semibold ${editorTheme === "vs-dark" ? "text-slate-300" : "text-slate-700"}`}>
                 Copilot:{" "}
                 <span className={`font-bold uppercase tracking-wide text-[10px] px-1.5 py-0.5 rounded border ${
                   aiStatus === "thinking" 
-                    ? "text-amber-400 bg-amber-500/10 border-amber-500/20" 
+                    ? (editorTheme === "vs-dark" ? "text-amber-400 bg-amber-500/10 border-amber-500/20" : "text-amber-600 bg-amber-50 border-amber-200") 
                     : aiStatus === "typing" 
-                    ? "text-cyan-400 bg-cyan-500/10 border-cyan-500/20 animate-pulse" 
-                    : "text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
+                    ? (editorTheme === "vs-dark" ? "text-cyan-400 bg-cyan-500/10 border-cyan-500/20 animate-pulse" : "text-cyan-600 bg-cyan-50 border-cyan-200 animate-pulse") 
+                    : (editorTheme === "vs-dark" ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/20" : "text-emerald-600 bg-emerald-50 border-emerald-250")
                 }`}>
                   {aiStatus === "idle" ? "Ready" : aiStatus}
                 </span>
@@ -1021,10 +1512,12 @@ export default function IDELayout() {
 
                 {/* Message Bubble */}
                 <div className="flex flex-col gap-1.5 max-w-full">
-                  <div className={`p-3.5 rounded-2xl leading-relaxed whitespace-pre-wrap shadow-md ${
+                  <div className={`p-3.5 rounded-2xl leading-relaxed whitespace-pre-wrap shadow-md transition-colors duration-250 ${
                     msg.sender === "user"
                       ? "bg-gradient-to-br from-indigo-600 to-purple-600 text-white rounded-tr-none"
-                      : "glass-panel text-slate-200 border border-slate-800/60 rounded-tl-none"
+                      : (editorTheme === "vs-dark" 
+                          ? "glass-panel text-slate-200 border border-slate-800/60 rounded-tl-none" 
+                          : "bg-white text-slate-700 border border-slate-200 rounded-tl-none shadow-sm")
                   }`}>
                     {/* Render Code Formatting in Chat Messages */}
                     {msg.text.includes("```") ? (
@@ -1036,13 +1529,19 @@ export default function IDELayout() {
                           const actualCode = codeLines.slice(1).join("\n");
                           const copyId = `${msg.id}-${idx}`;
                           return (
-                            <div key={idx} className="my-2.5 border border-slate-800/80 rounded-xl overflow-hidden font-mono bg-[#0f0f12] text-slate-300 text-[11px] shadow-lg">
-                              <div className="bg-[#0c0c0e] px-3.5 py-1.5 text-[9px] text-slate-500 font-bold border-b border-slate-900/60 flex justify-between items-center select-none">
-                                <span className="uppercase tracking-wider text-slate-400">{lang || "code"}</span>
+                            <div key={idx} className={`my-2.5 border rounded-xl overflow-hidden font-mono text-[11px] shadow-lg transition-colors duration-250 ${
+                              editorTheme === "vs-dark" ? "border-slate-800/80 bg-[#0f0f12] text-slate-300" : "border-slate-200 bg-[#f9fafb] text-slate-700"
+                            }`}>
+                              <div className={`px-3.5 py-1.5 text-[9px] font-bold flex justify-between items-center select-none border-b transition-colors duration-250 ${
+                                editorTheme === "vs-dark" ? "bg-[#0c0c0e] text-slate-500 border-slate-900/60" : "bg-[#f3f4f6] text-slate-500 border-slate-200"
+                              }`}>
+                                <span className="uppercase tracking-wider">{lang || "code"}</span>
                                 <button 
                                   onClick={() => handleCopyCode(actualCode, copyId)}
                                   type="button"
-                                  className="hover:text-white p-1 rounded-md hover:bg-slate-800/50 transition-colors flex items-center gap-1 cursor-pointer"
+                                  className={`p-1 rounded-md transition-colors flex items-center gap-1 cursor-pointer ${
+                                    editorTheme === "vs-dark" ? "hover:text-white hover:bg-slate-800/50 text-slate-400" : "hover:text-slate-900 hover:bg-slate-200/60 text-slate-500"
+                                  }`}
                                   title="Copy Code"
                                 >
                                   {copiedCodeId === copyId ? (
@@ -1072,11 +1571,17 @@ export default function IDELayout() {
             {/* Streaming Typing Indicator Message */}
             {aiStatus === "typing" && streamingMessage && (
               <div className="flex gap-3 max-w-[88%] mr-auto animate-slide-up">
-                <div className="w-7.5 h-7.5 rounded-xl flex items-center justify-center shrink-0 border bg-purple-950/40 border-purple-800/40 text-purple-400">
+                <div className={`w-7.5 h-7.5 rounded-xl flex items-center justify-center shrink-0 border ${
+                  editorTheme === "vs-dark" ? "bg-purple-950/40 border-purple-800/40 text-purple-400" : "bg-purple-50 border-purple-200 text-purple-600"
+                }`}>
                   <Sparkles className="w-3.5 h-3.5 animate-spin" />
                 </div>
                 <div className="flex flex-col gap-1.5 max-w-full">
-                  <div className="p-3.5 rounded-2xl glass-panel text-slate-200 border border-slate-800/60 rounded-tl-none shadow-md leading-relaxed whitespace-pre-wrap">
+                  <div className={`p-3.5 rounded-2xl leading-relaxed whitespace-pre-wrap shadow-md transition-colors duration-250 ${
+                    editorTheme === "vs-dark" 
+                      ? "glass-panel text-slate-200 border border-slate-800/60 rounded-tl-none" 
+                      : "bg-white text-slate-700 border border-slate-200 rounded-tl-none"
+                  }`}>
                     {streamingMessage.includes("```") ? (
                       streamingMessage.split("```").map((block, idx) => {
                         if (idx % 2 === 1) {
@@ -1084,9 +1589,13 @@ export default function IDELayout() {
                           const lang = codeLines[0].trim();
                           const actualCode = codeLines.slice(1).join("\n");
                           return (
-                            <div key={idx} className="my-2.5 border border-slate-800/80 rounded-xl overflow-hidden font-mono bg-[#0f0f12] text-slate-300 text-[11px]">
-                              <div className="bg-[#0c0c0e] px-3.5 py-1.5 text-[9px] text-slate-500 font-bold border-b border-slate-900/60 flex justify-between items-center select-none">
-                                <span className="uppercase tracking-wider text-slate-400">{lang || "code"}</span>
+                            <div key={idx} className={`my-2.5 border rounded-xl overflow-hidden font-mono text-[11px] transition-colors duration-250 ${
+                              editorTheme === "vs-dark" ? "border-slate-800/80 bg-[#0f0f12] text-slate-300" : "border-slate-200 bg-[#f9fafb] text-slate-700"
+                            }`}>
+                              <div className={`px-3.5 py-1.5 text-[9px] font-bold flex justify-between items-center select-none border-b transition-colors duration-250 ${
+                                editorTheme === "vs-dark" ? "bg-[#0c0c0e] text-slate-500 border-slate-900/60" : "bg-[#f3f4f6] text-slate-500 border-slate-200"
+                              }`}>
+                                <span className="uppercase tracking-wider">{lang || "code"}</span>
                               </div>
                               <pre className="p-3.5 overflow-x-auto scrollbar-thin"><code>{actualCode}</code></pre>
                             </div>
@@ -1106,10 +1615,14 @@ export default function IDELayout() {
             {/* Thinking Indicator Animation */}
             {aiStatus === "thinking" && (
               <div className="flex gap-3 max-w-[88%] mr-auto items-start animate-slide-up">
-                <div className="w-7.5 h-7.5 rounded-xl flex items-center justify-center shrink-0 border bg-purple-950/40 border-purple-800/40 text-purple-400">
+                <div className={`w-7.5 h-7.5 rounded-xl flex items-center justify-center shrink-0 border ${
+                  editorTheme === "vs-dark" ? "bg-purple-950/40 border-purple-800/40 text-purple-400" : "bg-purple-50 border-purple-200 text-purple-600"
+                }`}>
                   <Sparkles className="w-3.5 h-3.5 animate-spin" />
                 </div>
-                <div className="glass-panel border border-slate-800/60 p-4.5 rounded-2xl rounded-tl-none flex items-center gap-1.5 shadow-md">
+                <div className={`border p-4.5 rounded-2xl rounded-tl-none flex items-center gap-1.5 shadow-md transition-colors duration-250 ${
+                  editorTheme === "vs-dark" ? "glass-panel border-slate-800/60" : "bg-white border-slate-200"
+                }`}>
                   <span className="w-2.5 h-2.5 bg-purple-400 rounded-full animate-bounce-typing" style={{ animationDelay: "0ms" }}></span>
                   <span className="w-2.5 h-2.5 bg-purple-400 rounded-full animate-bounce-typing" style={{ animationDelay: "150ms" }}></span>
                   <span className="w-2.5 h-2.5 bg-purple-400 rounded-full animate-bounce-typing" style={{ animationDelay: "300ms" }}></span>
@@ -1121,14 +1634,22 @@ export default function IDELayout() {
           </div>
 
           {/* Quick Prompts Panel */}
-          <div className="px-4 py-3.5 border-t border-[#202025] bg-[#0c0c0f]/80 flex flex-col gap-2 shrink-0">
+          <div className={`px-4 py-3.5 flex flex-col gap-2 shrink-0 border-t transition-colors duration-250 ${
+            editorTheme === "vs-dark"
+              ? "border-[#202025] bg-[#0c0c0f]/80"
+              : "border-[#e5e7eb] bg-[#f9fafb]"
+          }`}>
             <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Quick Suggestions</span>
             <div className="flex flex-wrap gap-1.5">
               <button 
                 onClick={() => handleQuickPrompt("explain")}
                 type="button"
                 disabled={aiStatus !== "idle"}
-                className="flex items-center gap-1.5 text-[10px] text-slate-300 hover:text-white bg-[#1b1b22] hover:bg-purple-900/10 border border-[#2d2d35] hover:border-purple-500/50 px-2.5 py-1.5 rounded-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-sm hover:shadow-[0_0_8px_rgba(168,85,247,0.15)]"
+                className={`flex items-center gap-1.5 text-[10px] px-2.5 py-1.5 rounded-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-sm hover:shadow-[0_0_8px_rgba(168,85,247,0.15)] ${
+                  editorTheme === "vs-dark"
+                    ? "text-slate-300 hover:text-white bg-[#1b1b22] hover:bg-purple-900/10 border border-[#2d2d35] hover:border-purple-500/50"
+                    : "text-slate-700 hover:text-purple-700 bg-white hover:bg-purple-50 border border-slate-200 hover:border-purple-300"
+                }`}
               >
                 <Code className="w-3.5 h-3.5 text-slate-400 group-hover:text-white" />
                 <span>Explain code</span>
@@ -1137,7 +1658,11 @@ export default function IDELayout() {
                 onClick={() => handleQuickPrompt("refactor")}
                 type="button"
                 disabled={aiStatus !== "idle"}
-                className="flex items-center gap-1.5 text-[10px] text-slate-300 hover:text-white bg-[#1b1b22] hover:bg-purple-900/10 border border-[#2d2d35] hover:border-purple-500/50 px-2.5 py-1.5 rounded-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-sm hover:shadow-[0_0_8px_rgba(168,85,247,0.15)]"
+                className={`flex items-center gap-1.5 text-[10px] px-2.5 py-1.5 rounded-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-sm hover:shadow-[0_0_8px_rgba(168,85,247,0.15)] ${
+                  editorTheme === "vs-dark"
+                    ? "text-slate-300 hover:text-white bg-[#1b1b22] hover:bg-purple-900/10 border border-[#2d2d35] hover:border-purple-500/50"
+                    : "text-slate-700 hover:text-purple-700 bg-white hover:bg-purple-50 border border-slate-200 hover:border-purple-300"
+                }`}
               >
                 <Bug className="w-3.5 h-3.5 text-slate-400 group-hover:text-white" />
                 <span>Refactor</span>
@@ -1146,7 +1671,11 @@ export default function IDELayout() {
                 onClick={() => handleQuickPrompt("test")}
                 type="button"
                 disabled={aiStatus !== "idle"}
-                className="flex items-center gap-1.5 text-[10px] text-slate-300 hover:text-white bg-[#1b1b22] hover:bg-purple-900/10 border border-[#2d2d35] hover:border-purple-500/50 px-2.5 py-1.5 rounded-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-sm hover:shadow-[0_0_8px_rgba(168,85,247,0.15)]"
+                className={`flex items-center gap-1.5 text-[10px] px-2.5 py-1.5 rounded-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-sm hover:shadow-[0_0_8px_rgba(168,85,247,0.15)] ${
+                  editorTheme === "vs-dark"
+                    ? "text-slate-300 hover:text-white bg-[#1b1b22] hover:bg-purple-900/10 border border-[#2d2d35] hover:border-purple-500/50"
+                    : "text-slate-700 hover:text-purple-700 bg-white hover:bg-purple-50 border border-slate-200 hover:border-purple-300"
+                }`}
               >
                 <Play className="w-3.5 h-3.5 text-slate-400 group-hover:text-white" />
                 <span>Write Tests</span>
@@ -1160,9 +1689,15 @@ export default function IDELayout() {
               stopListening();
               handleSendMessage(e);
             }} 
-            className="p-3.5 bg-[#141418] border-t border-[#202025] flex flex-col gap-2 shrink-0"
+            className={`p-3.5 flex flex-col gap-2 shrink-0 border-t transition-colors duration-250 ${
+              editorTheme === "vs-dark" ? "bg-[#141418] border-[#202025]" : "bg-white border-[#e5e7eb]"
+            }`}
           >
-            <div className="relative flex items-end glass-input rounded-2xl p-2.5 focus-within:ring-1 focus-within:ring-purple-500/60 focus-within:border-transparent">
+            <div className={`relative flex items-end rounded-2xl p-2.5 transition-all duration-250 ${
+              editorTheme === "vs-dark"
+                ? "glass-input focus-within:ring-1 focus-within:ring-purple-500/60 focus-within:border-transparent"
+                : "bg-[#f3f4f6] border border-slate-200 focus-within:bg-white focus-within:border-purple-500 focus-within:ring-1 focus-within:ring-purple-500/60"
+            }`}>
               <textarea
                 ref={messageInputRef}
                 value={inputMessage}
@@ -1176,7 +1711,9 @@ export default function IDELayout() {
                 }}
                 disabled={aiStatus !== "idle"}
                 placeholder="Ask Copilot to write, change, or review..."
-                className="flex-1 max-h-24 min-h-[44px] resize-none bg-transparent text-white text-xs placeholder-slate-500 self-center focus:outline-none scrollbar-none py-1 pl-1"
+                className={`flex-1 max-h-24 min-h-[44px] resize-none bg-transparent text-xs placeholder-slate-500 self-center focus:outline-none scrollbar-none py-1 pl-1 ${
+                  editorTheme === "vs-dark" ? "text-white" : "text-slate-800"
+                }`}
                 rows={1}
               />
               <button
@@ -1186,7 +1723,7 @@ export default function IDELayout() {
                 className={`p-2 rounded-xl transition-all self-center hover-scale shrink-0 cursor-pointer mr-1.5 ${
                   isListening
                     ? "bg-red-600/20 text-red-400 border border-red-500/30 animate-pulse"
-                    : "text-slate-400 hover:text-white hover:bg-slate-800/40"
+                    : (editorTheme === "vs-dark" ? "text-slate-400 hover:text-white hover:bg-slate-800/40" : "text-slate-500 hover:text-slate-800 hover:bg-slate-200/50")
                 }`}
                 title={isListening ? "Listening... Click to stop" : "Voice input"}
               >
@@ -1198,7 +1735,7 @@ export default function IDELayout() {
                 className={`p-2 rounded-xl transition-all self-center hover-scale shrink-0 cursor-pointer ${
                   inputMessage.trim() && aiStatus === "idle"
                     ? "bg-purple-600 text-white hover:bg-purple-500 shadow-md shadow-purple-950/20"
-                    : "text-slate-600 bg-[#1e1e23]/30 cursor-not-allowed border border-transparent"
+                    : (editorTheme === "vs-dark" ? "text-slate-600 bg-[#1e1e23]/30 cursor-not-allowed border border-transparent" : "text-slate-400 bg-slate-200/50 cursor-not-allowed border border-transparent")
                 }`}
               >
                 <Send className="w-4 h-4" />
@@ -1213,35 +1750,53 @@ export default function IDELayout() {
       </div>
 
       {/* 5. Status Bar (Bottom) */}
-      <footer className="h-6.5 bg-[#007ACC] flex items-center justify-between px-4 text-[11px] text-white select-none z-20 shrink-0 font-medium">
+      <footer className={`h-6.5 flex items-center justify-between px-4 text-[11px] select-none z-20 shrink-0 font-medium border-t transition-colors duration-250 ${
+        editorTheme === "vs-dark"
+          ? "bg-[#0d0d11] border-[#1c1c22] text-slate-400"
+          : "bg-white border-slate-200 text-slate-600 shadow-[0_-1px_3px_rgba(0,0,0,0.02)]"
+      }`}>
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-1 hover:bg-[#1f8ad2] px-2.5 py-0.5 cursor-pointer h-full transition-colors">
+          <div className={`flex items-center gap-1 px-2.5 py-0.5 cursor-pointer h-full transition-colors ${
+            editorTheme === "vs-dark" ? "hover:bg-slate-800/60 hover:text-slate-200" : "hover:bg-slate-100 hover:text-slate-900"
+          }`}>
             <GitBranch className="w-3.5 h-3.5" />
             <span>main</span>
           </div>
-          <div className="flex items-center gap-2.5 hover:bg-[#1f8ad2] px-2.5 py-0.5 cursor-pointer h-full transition-colors">
+          <div className={`flex items-center gap-2.5 px-2.5 py-0.5 cursor-pointer h-full transition-colors ${
+            editorTheme === "vs-dark" ? "hover:bg-slate-800/60 hover:text-slate-200" : "hover:bg-slate-100 hover:text-slate-900"
+          }`}>
             <div className="flex items-center gap-1">
               <span className="font-bold">0</span>
-              <X className="w-3 h-3 text-red-200" />
+              <X className={`w-3 h-3 ${editorTheme === "vs-dark" ? "text-red-400" : "text-red-600"}`} />
             </div>
             <div className="flex items-center gap-1">
               <span className="font-bold">0</span>
-              <Bug className="w-3 h-3 text-amber-200" />
+              <Bug className={`w-3 h-3 ${editorTheme === "vs-dark" ? "text-amber-400" : "text-amber-600"}`} />
             </div>
           </div>
-          <div className="hidden sm:flex items-center gap-1.5 text-[10px] text-blue-100 font-mono">
+          <div 
+            onClick={() => setBottomPanelOpen(prev => !prev)}
+            className={`hidden sm:flex items-center gap-1.5 text-[10px] font-mono px-2 py-0.5 cursor-pointer h-full transition-colors ${
+              editorTheme === "vs-dark" 
+                ? "text-indigo-400 hover:bg-slate-800/60 hover:text-indigo-300" 
+                : "text-indigo-600 hover:bg-slate-100 hover:text-indigo-800"
+            }`}
+            title="Toggle Bottom Console Panel"
+          >
             <TerminalSquare className="w-3.5 h-3.5 shrink-0" />
-            <span>Status: {aiStatus.toUpperCase()}</span>
+            <span>Console: {bottomPanelOpen ? "OPEN" : "CLOSED"}</span>
           </div>
         </div>
 
         <div className="flex items-center gap-3">
-          <span className="hover:bg-[#1f8ad2] px-2 py-0.5 cursor-pointer h-full hidden md:inline transition-colors">Ln 14, Col 5</span>
-          <span className="hover:bg-[#1f8ad2] px-2 py-0.5 cursor-pointer h-full hidden md:inline transition-colors">Spaces: 2</span>
-          <span className="hover:bg-[#1f8ad2] px-2 py-0.5 cursor-pointer h-full hidden sm:inline transition-colors">UTF-8</span>
-          <span className="hover:bg-[#1f8ad2] px-2 py-0.5 cursor-pointer h-full transition-colors">TypeScript JSX</span>
-          <span className="hover:bg-[#1f8ad2] px-2.5 py-0.5 cursor-pointer h-full text-blue-100 transition-colors flex items-center gap-1">
-            <Sparkles className={`w-3.5 h-3.5 ${aiStatus !== "idle" ? "animate-spin text-amber-200" : ""}`} />
+          <span className={`px-2 py-0.5 cursor-pointer h-full hidden md:inline transition-colors ${editorTheme === "vs-dark" ? "hover:bg-slate-800/60" : "hover:bg-slate-100"}`}>Ln 14, Col 5</span>
+          <span className={`px-2 py-0.5 cursor-pointer h-full hidden md:inline transition-colors ${editorTheme === "vs-dark" ? "hover:bg-slate-800/60" : "hover:bg-slate-100"}`}>Spaces: 2</span>
+          <span className={`px-2 py-0.5 cursor-pointer h-full hidden sm:inline transition-colors ${editorTheme === "vs-dark" ? "hover:bg-slate-800/60" : "hover:bg-slate-100"}`}>UTF-8</span>
+          <span className={`px-2 py-0.5 cursor-pointer h-full transition-colors ${editorTheme === "vs-dark" ? "hover:bg-slate-800/60" : "hover:bg-slate-100"}`}>TypeScript JSX</span>
+          <span className={`px-2.5 py-0.5 cursor-pointer h-full transition-colors flex items-center gap-1 ${
+            editorTheme === "vs-dark" ? "text-indigo-400 hover:bg-slate-800/60" : "text-indigo-600 hover:bg-slate-100"
+          }`}>
+            <Sparkles className={`w-3.5 h-3.5 ${aiStatus !== "idle" ? "animate-spin text-amber-500" : ""}`} />
             <span>Copilot Sync'd</span>
           </span>
         </div>
