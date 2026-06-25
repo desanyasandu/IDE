@@ -47,7 +47,10 @@ import {
   Upload,
   GitMerge,
   Cloud,
-  Circle
+  Circle,
+  ExternalLink,
+  Maximize2,
+  Minimize2
 } from "lucide-react";
 
 interface MockFile {
@@ -583,6 +586,98 @@ export default function IDELayout() {
   const localScreenStreamRef = useRef<MediaStream | null>(null);
   const [remoteScreenStreams, setRemoteScreenStreams] = useState<Record<string, MediaStream>>({});
   const [speakingUsers, setSpeakingUsers] = useState<Record<string, boolean>>({});
+  const [poppedOutScreens, setPoppedOutScreens] = useState<Record<string, boolean>>({});
+  const [popupPositions, setPopupPositions] = useState<Record<string, { x: number; y: number }>>({});
+  const [maximizedPopups, setMaximizedPopups] = useState<Record<string, boolean>>({});
+  const popupDragRef = useRef<{ id: string | null; startMouse: { x: number; y: number }; startPos: { x: number; y: number } }>({ id: null, startMouse: { x: 0, y: 0 }, startPos: { x: 0, y: 0 } });
+
+  // ── Disconnect call: stop all streams, close all peer connections ────────────
+  const disconnectCall = () => {
+    // Stop local microphone
+    if (localStreamRef.current) {
+      localStreamRef.current.getTracks().forEach(t => t.stop());
+      localStreamRef.current = null;
+    }
+    localAudioTrackRef.current = null;
+
+    // Stop local screen share
+    if (localScreenStreamRef.current) {
+      localScreenStreamRef.current.getTracks().forEach(t => t.stop());
+      localScreenStreamRef.current = null;
+    }
+    setIsSharingScreen(false);
+
+    // Close all peer connections
+    Object.keys(peerConnectionsRef.current).forEach(pcId => {
+      try { peerConnectionsRef.current[pcId].close(); } catch (_) {}
+      delete peerConnectionsRef.current[pcId];
+    });
+    peerConnectionsRef.current = {};
+
+    // Remove all audio elements from DOM
+    Object.keys(audioElementsRef.current).forEach(pcId => {
+      try { audioElementsRef.current[pcId].pause(); audioElementsRef.current[pcId].srcObject = null; audioElementsRef.current[pcId].remove(); } catch (_) {}
+      delete audioElementsRef.current[pcId];
+    });
+    audioElementsRef.current = {};
+
+    // Stop volume monitors
+    Object.keys(audioContextsRef.current).forEach(cid => stopMonitoringVolume(cid));
+    audioContextsRef.current = {};
+    setSpeakingUsers({});
+
+    // Clear remote streams and popup state
+    setRemoteScreenStreams({});
+    setPoppedOutScreens({});
+    setPopupPositions({});
+    setMaximizedPopups({});
+
+    // Hide the call panel
+    setIsCallActive(false);
+    setIsCallPanelOpen(false);
+  };
+
+  // ── Toggle screenshare popup out of panel ────────────────────────────────────
+  const togglePopOut = (collabId: string) => {
+    setPoppedOutScreens(prev => {
+      const isPopped = !!prev[collabId];
+      if (!isPopped) {
+        // Initialize centered position
+        setPopupPositions(p => ({
+          ...p,
+          [collabId]: { x: window.innerWidth / 2 - 400, y: window.innerHeight / 2 - 250 }
+        }));
+      }
+      return { ...prev, [collabId]: !isPopped };
+    });
+  };
+
+  // ── Popup drag helpers ────────────────────────────────────────────────────────
+  const handlePopupMouseDown = (collabId: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    popupDragRef.current = {
+      id: collabId,
+      startMouse: { x: e.clientX, y: e.clientY },
+      startPos: { ...popupPositions[collabId] }
+    };
+    const onMove = (me: MouseEvent) => {
+      const ref = popupDragRef.current;
+      if (!ref.id) return;
+      const dx = me.clientX - ref.startMouse.x;
+      const dy = me.clientY - ref.startMouse.y;
+      setPopupPositions(prev => ({
+        ...prev,
+        [ref.id!]: { x: ref.startPos.x + dx, y: ref.startPos.y + dy }
+      }));
+    };
+    const onUp = () => {
+      popupDragRef.current.id = null;
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+    };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  };
 
   // Renegotiate connection helper
   const renegotiate = (pcId: string, pc: RTCPeerConnection) => {
@@ -2666,56 +2761,7 @@ export default function IDELayout() {
                   suggestOnTriggerCharacters: true
                 }}
               />
-              {/* Screen Share Overlay Viewer */}
-              {Object.entries(remoteScreenStreams).map(([collabId, stream]) => {
-                const sharingCollab = activeCollaborators.find(c => c.id.toString() === collabId);
-                return (
-                  <div 
-                    key={collabId} 
-                    className={`absolute inset-0 z-30 flex flex-col backdrop-blur-md ${
-                      editorTheme === "vs-dark" ? "bg-[#0b0b0f]/80" : "bg-white/80"
-                    }`}
-                  >
-                    <div className={`px-4 py-2 border-b flex items-center justify-between ${
-                      editorTheme === "vs-dark" ? "bg-[#141419] border-slate-800/80 text-white" : "bg-slate-50 border-slate-200 text-slate-850"
-                    }`}>
-                      <div className="flex items-center gap-2">
-                        <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse"></span>
-                        <span className="text-xs font-semibold">
-                          {sharingCollab ? sharingCollab.name : `User-${collabId}`} is sharing their screen
-                        </span>
-                      </div>
-                      <button
-                        onClick={() => {
-                          setRemoteScreenStreams(prev => {
-                            const next = { ...prev };
-                            delete next[collabId];
-                            return next;
-                          });
-                        }}
-                        className={`p-1 rounded hover:bg-slate-700/50 cursor-pointer ${
-                          editorTheme === "vs-dark" ? "text-slate-400 hover:text-white" : "text-slate-500 hover:text-slate-800"
-                        }`}
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-                    <div className="flex-1 bg-black flex items-center justify-center p-2 relative overflow-hidden">
-                      <video
-                        ref={(el) => {
-                          if (el) {
-                            el.srcObject = stream;
-                            el.play().catch(e => console.warn("Failed to play screen share track:", e));
-                          }
-                        }}
-                        autoPlay
-                        playsInline
-                        className="max-w-full max-h-full rounded-lg shadow-2xl object-contain border border-slate-800"
-                      />
-                    </div>
-                  </div>
-                );
-              })}
+              {/* Screen share tiles are now shown in the call panel, not here */}
             </div>
 
             {/* Code actions bar / Overlay options */}
@@ -3099,6 +3145,53 @@ export default function IDELayout() {
                 </div>
               </div>
 
+              {/* ── Active Screen Share Tiles ── */}
+              {Object.entries(remoteScreenStreams).filter(([cid]) => !poppedOutScreens[cid]).map(([collabId, stream]) => {
+                const sharingCollab = activeCollaborators.find(c => c.id.toString() === collabId);
+                return (
+                  <div key={collabId} className={`mx-3 mb-3 rounded-xl overflow-hidden border flex flex-col ${
+                    editorTheme === "vs-dark" ? "bg-black border-slate-700/60" : "bg-slate-900 border-slate-600"
+                  }`}>
+                    {/* Tile header */}
+                    <div className={`px-2.5 py-1.5 flex items-center justify-between ${
+                      editorTheme === "vs-dark" ? "bg-[#1b1b22] border-b border-slate-800" : "bg-slate-800 border-b border-slate-700"
+                    }`}>
+                      <div className="flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
+                        <span className="text-[10px] font-semibold text-slate-300 truncate max-w-[120px]">
+                          {sharingCollab ? sharingCollab.name : `User-${collabId}`}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => togglePopOut(collabId)}
+                          className="p-1 rounded text-slate-400 hover:text-white hover:bg-slate-700/60 transition-colors cursor-pointer"
+                          title="Pop out"
+                        >
+                          <ExternalLink className="w-3 h-3" />
+                        </button>
+                        <button
+                          onClick={() => setRemoteScreenStreams(prev => { const n = { ...prev }; delete n[collabId]; return n; })}
+                          className="p-1 rounded text-slate-400 hover:text-red-400 hover:bg-slate-700/60 transition-colors cursor-pointer"
+                          title="Close"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </div>
+                    {/* Video */}
+                    <div className="bg-black flex items-center justify-center" style={{ minHeight: '120px' }}>
+                      <video
+                        ref={(el) => { if (el) { el.srcObject = stream; el.play().catch(() => {}); } }}
+                        autoPlay playsInline
+                        className="w-full object-contain"
+                        style={{ maxHeight: '160px' }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+
               {/* Call Controls */}
               <div className={`p-3 flex justify-center gap-3 border-t ${
                 editorTheme === "vs-dark" ? "bg-[#1b1b22] border-slate-800/80" : "bg-slate-50 border-slate-200"
@@ -3133,10 +3226,7 @@ export default function IDELayout() {
                   <MonitorUp className="w-4.5 h-4.5" />
                 </button>
                 <button
-                  onClick={() => {
-                    setIsCallActive(false);
-                    setIsCallPanelOpen(false);
-                  }}
+                  onClick={disconnectCall}
                   className="p-2.5 rounded-full bg-red-600 hover:bg-red-500 text-white shadow-lg shadow-red-900/40 transition-colors cursor-pointer"
                   title="Disconnect"
                 >
@@ -3963,6 +4053,71 @@ export default function IDELayout() {
           </div>
         </div>
       )}
+
+      {/* ── Floating Screenshare Popups ── */}
+      {Object.entries(remoteScreenStreams).filter(([cid]) => poppedOutScreens[cid]).map(([collabId, stream]) => {
+        const sharingCollab = activeCollaborators.find(c => c.id.toString() === collabId);
+        const pos = popupPositions[collabId] || { x: 80, y: 80 };
+        const isMax = !!maximizedPopups[collabId];
+        return (
+          <div
+            key={collabId}
+            className={`fixed z-[200] rounded-2xl shadow-2xl border flex flex-col overflow-hidden ${
+              editorTheme === "vs-dark"
+                ? "bg-[#0e0e12] border-slate-700/70 shadow-black/70"
+                : "bg-slate-900 border-slate-600 shadow-slate-900/60"
+            }`}
+            style={isMax
+              ? { top: 0, left: 0, right: 0, bottom: 0, width: '100vw', height: '100vh', borderRadius: 0 }
+              : { top: pos.y, left: pos.x, width: 640, minHeight: 420, resize: 'both', overflow: 'hidden' }
+            }
+          >
+            {/* Popup title bar — draggable */}
+            <div
+              className="px-3 py-2 flex items-center justify-between bg-[#141419] border-b border-slate-800/80 cursor-move select-none shrink-0"
+              onMouseDown={isMax ? undefined : (e) => handlePopupMouseDown(collabId, e)}
+            >
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse"></span>
+                <span className="text-[11px] font-semibold text-slate-200">
+                  {sharingCollab ? sharingCollab.name : `User-${collabId}`}&nbsp;— Screen Share
+                </span>
+              </div>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setMaximizedPopups(prev => ({ ...prev, [collabId]: !isMax }))}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700/50 transition-colors cursor-pointer"
+                  title={isMax ? "Restore" : "Maximize"}
+                >
+                  {isMax ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+                </button>
+                <button
+                  onClick={() => togglePopOut(collabId)}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-amber-300 hover:bg-slate-700/50 transition-colors cursor-pointer"
+                  title="Dock back to panel"
+                >
+                  <Minimize2 className="w-3.5 h-3.5 rotate-90" />
+                </button>
+                <button
+                  onClick={() => setRemoteScreenStreams(prev => { const n = { ...prev }; delete n[collabId]; return n; })}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-red-400 hover:bg-slate-700/50 transition-colors cursor-pointer"
+                  title="Close stream"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+            {/* Video area */}
+            <div className="flex-1 bg-black flex items-center justify-center overflow-hidden">
+              <video
+                ref={(el) => { if (el) { el.srcObject = stream; el.play().catch(() => {}); } }}
+                autoPlay playsInline
+                className="w-full h-full object-contain"
+              />
+            </div>
+          </div>
+        );
+      })}
 
       <ShareModal
         isOpen={isShareModalOpen}
