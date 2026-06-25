@@ -23,6 +23,8 @@ import {
   RefreshCw,
   FileJson,
   Plus,
+  Layers,
+  Trash2,
   Play,
   Moon,
   Sun,
@@ -74,7 +76,7 @@ export default function IDELayout() {
   // Sidebar states
   const [leftSidebarOpen, setLeftSidebarOpen] = useState(true);
   const [rightSidebarOpen, setRightSidebarOpen] = useState(true);
-  const [activeLeftTab, setActiveLeftTab] = useState<"explorer" | "search" | "git">("explorer");
+  const [activeLeftTab, setActiveLeftTab] = useState<"explorer" | "search" | "git" | "rooms">("explorer");
 
   // Panel resizing states
   const [leftSidebarWidth, setLeftSidebarWidth] = useState(260);
@@ -217,7 +219,79 @@ export default function IDELayout() {
     document.addEventListener("mousemove", doDrag);
     document.addEventListener("mouseup", stopDrag);
   };
-  const [workspaceId] = useState<string>(() => new URLSearchParams(window.location.search).get('room') || "my-room");
+  const [workspaceId, setWorkspaceId] = useState<string>(() => new URLSearchParams(window.location.search).get('room') || "my-room");
+  const [userRole, setUserRole] = useState<"owner" | "editor" | "viewer">((() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const roleParam = urlParams.get('role')?.toLowerCase();
+    if (roleParam === "owner") return "owner";
+    if (roleParam === "editor") return "editor";
+    if (roleParam === "viewer") return "viewer";
+    
+    return urlParams.has('room') ? "editor" : "owner";
+  })());
+
+  const [roomsHistory, setRoomsHistory] = useState<string[]>(() => {
+    const saved = localStorage.getItem('cod-ide-rooms-history');
+    const list = saved ? JSON.parse(saved) : ["my-room"];
+    if (!list.includes(workspaceId)) {
+      list.push(workspaceId);
+      localStorage.setItem('cod-ide-rooms-history', JSON.stringify(list));
+    }
+    
+    // Track roles for each room in localStorage
+    const savedRoles = localStorage.getItem('cod-ide-room-roles') || '{}';
+    const rolesMap = JSON.parse(savedRoles);
+    if (!rolesMap[workspaceId]) {
+      const urlParams = new URLSearchParams(window.location.search);
+      const roleParam = urlParams.get('role')?.toLowerCase() || (urlParams.has('room') ? "editor" : "owner");
+      rolesMap[workspaceId] = roleParam;
+      localStorage.setItem('cod-ide-room-roles', JSON.stringify(rolesMap));
+    }
+    return list;
+  });
+
+  const handleSwitchRoom = (roomId: string) => {
+    setWorkspaceId(roomId);
+    
+    const savedRoles = localStorage.getItem('cod-ide-room-roles') || '{}';
+    const rolesMap = JSON.parse(savedRoles);
+    const role = rolesMap[roomId] || 'owner';
+    
+    const url = new URL(window.location.href);
+    url.searchParams.set('room', roomId);
+    url.searchParams.set('role', role);
+    window.history.pushState(null, '', url.toString());
+
+    setUserRole(role as any);
+  };
+
+  const handleCreateNewRoom = () => {
+    const newRoomId = `room-${Math.random().toString(36).substring(2, 9)}`;
+    const confirmNew = window.confirm("Are you sure you want to create a new workspace room? (This will open it dynamically without page reload)");
+    if (confirmNew) {
+      const savedRoles = localStorage.getItem('cod-ide-room-roles') || '{}';
+      const rolesMap = JSON.parse(savedRoles);
+      rolesMap[newRoomId] = 'owner';
+      localStorage.setItem('cod-ide-room-roles', JSON.stringify(rolesMap));
+
+      const updatedHistory = [...roomsHistory];
+      if (!updatedHistory.includes(newRoomId)) {
+        updatedHistory.push(newRoomId);
+        setRoomsHistory(updatedHistory);
+        localStorage.setItem('cod-ide-rooms-history', JSON.stringify(updatedHistory));
+      }
+
+      handleSwitchRoom(newRoomId);
+    }
+  };
+
+  // Clear workspace files/tabs when workspaceId changes to avoid data leaking between rooms
+  useEffect(() => {
+    setFiles({});
+    setOpenTabs([]);
+    setActiveFilePath("");
+  }, [workspaceId]);
+
   const BACKEND_API_URL = "https://quench-mortified-amaze.ngrok-free.dev";
 
   // File explorer states
@@ -422,7 +496,8 @@ export default function IDELayout() {
         name: `User-${randomSeed}`,
         avatar: `https://api.dicebear.com/7.x/initials/svg?seed=User-${randomSeed}`,
         color: '#' + Math.floor(Math.random()*16777215).toString(16),
-        isSharingScreen: false
+        isSharingScreen: false,
+        role: userRole
       };
     }
     provider.awareness.setLocalStateField('user', localUserRef.current);
@@ -438,7 +513,8 @@ export default function IDELayout() {
             avatar: state.user.avatar,
             color: state.user.color,
             isMe: clientID === provider.awareness.clientID,
-            isSharingScreen: !!state.user.isSharingScreen
+            isSharingScreen: !!state.user.isSharingScreen,
+            role: state.user.role || 'editor'
           });
         }
       });
@@ -1287,6 +1363,7 @@ export default function IDELayout() {
 
   // Handle file code editing
   const handleEditorChange = (value: string | undefined) => {
+    if (userRole === "viewer") return;
     if (value !== undefined) {
       setFiles(prev => ({
         ...prev,
@@ -1308,6 +1385,10 @@ export default function IDELayout() {
 
   // Create workspace file in backend
   const handleCreateFile = async () => {
+    if (userRole === "viewer") {
+      alert("Permission Denied: Viewers cannot create files.");
+      return;
+    }
     const filename = prompt("Enter new filename (e.g., src/index.css):");
     if (!filename) return;
 
@@ -1373,6 +1454,10 @@ export default function IDELayout() {
   // Delete workspace file in backend
   const handleDeleteFile = async (e: React.MouseEvent, path: string) => {
     e.stopPropagation();
+    if (userRole === "viewer") {
+      alert("Permission Denied: Viewers cannot delete files.");
+      return;
+    }
     const file = files[path];
     if (!file) return;
 
@@ -1425,6 +1510,10 @@ export default function IDELayout() {
 
   // Run Code logic simulating dynamic console printing
   const handleRunCode = () => {
+    if (userRole === "viewer") {
+      alert("Permission Denied: Viewers cannot run code.");
+      return;
+    }
     if (isRunning) return;
 
     setIsRunning(true);
@@ -1683,6 +1772,7 @@ export default function IDELayout() {
   const IDE_MENUS: Record<string, MenuItem[]> = {
     File: [
       { label: "New File", shortcut: "Ctrl+N", action: handleCreateFile },
+      { label: "New Workspace / Room", action: handleCreateNewRoom },
       { label: "New Window", shortcut: "Ctrl+Shift+N", action: () => window.open(window.location.href, '_blank') },
       { divider: true },
       { label: "Save", shortcut: "Ctrl+S", action: () => alert("File saved successfully!") },
@@ -1842,6 +1932,16 @@ export default function IDELayout() {
             <img className="w-7 h-7 rounded-full border border-[#1a1a1f] bg-emerald-500 hover:z-10 hover:scale-110 transition-transform cursor-pointer" src="https://api.dicebear.com/7.x/initials/svg?seed=Sam" alt="Sam" title="Sam is editing App.css" />
             <div className="w-7 h-7 rounded-full border-2 border-purple-500/80 bg-purple-950 flex items-center justify-center text-[10px] font-bold text-purple-300 z-10 shadow-[0_0_8px_rgba(168,85,247,0.4)]" title="AI Agent is active">AI</div>
           </div>
+          {userRole === "owner" && (
+            <button
+              onClick={handleCreateNewRoom}
+              className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all border border-slate-700 cursor-pointer hover:border-slate-600 shadow-sm"
+              title="Create New Workspace Room"
+            >
+              <Plus className="w-3.5 h-3.5 text-indigo-400" />
+              <span>New Room</span>
+            </button>
+          )}
           <button
             onClick={() => setIsShareModalOpen(true)}
             className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1 rounded-lg text-[11px] font-bold transition-all shadow-md shadow-indigo-900/30 hover:shadow-[0_0_10px_rgba(99,102,241,0.4)] cursor-pointer"
@@ -1981,6 +2081,29 @@ export default function IDELayout() {
             >
               <GitBranch className="w-5.5 h-5.5" />
               {leftSidebarOpen && activeLeftTab === "git" && (
+                <span className="absolute left-0 top-1/4 w-[3px] h-1/2 bg-indigo-500 rounded-r shadow-[0_0_8px_#6366f1]"></span>
+              )}
+            </button>
+
+            {/* Rooms/Workspaces Toggle */}
+            <button
+              onClick={() => {
+                if (leftSidebarOpen && activeLeftTab === "rooms") {
+                  setLeftSidebarOpen(false);
+                } else {
+                  setLeftSidebarOpen(true);
+                  setActiveLeftTab("rooms");
+                }
+              }}
+              className={`p-2.5 rounded-xl transition-all duration-300 relative hover-scale group cursor-pointer ${
+                leftSidebarOpen && activeLeftTab === "rooms"
+                  ? (editorTheme === "vs-dark" ? "text-indigo-400 bg-[#1a1a24] shadow-inner" : "text-indigo-600 bg-indigo-50 shadow-sm")
+                  : (editorTheme === "vs-dark" ? "hover:text-slate-200 hover:bg-slate-900/60" : "hover:text-slate-800 hover:bg-slate-100")
+              }`}
+              title="Rooms & Workspaces"
+            >
+              <Layers className="w-5.5 h-5.5" />
+              {leftSidebarOpen && activeLeftTab === "rooms" && (
                 <span className="absolute left-0 top-1/4 w-[3px] h-1/2 bg-indigo-500 rounded-r shadow-[0_0_8px_#6366f1]"></span>
               )}
             </button>
@@ -2608,6 +2731,112 @@ export default function IDELayout() {
               </div>
             </div>
           )}
+
+          {activeLeftTab === "rooms" && (
+            <div className="flex flex-col h-full text-xs animate-fade-in duration-200">
+              <div className={`p-3.5 flex items-center justify-between font-semibold tracking-wider text-[10px] uppercase border-b transition-colors duration-250 ${
+                editorTheme === "vs-dark" ? "border-[#25252b] text-slate-400" : "border-[#e5e7eb] text-slate-500"
+              }`}>
+                <span>Workspaces / Rooms</span>
+                <button
+                  onClick={handleCreateNewRoom}
+                  className={`p-1 rounded cursor-pointer transition-colors ${editorTheme === "vs-dark" ? "hover:bg-slate-800/60 text-slate-400 hover:text-white" : "hover:bg-slate-200 text-slate-600 hover:text-slate-900"}`}
+                  title="Create New Room"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-3.5 scrollbar-thin flex flex-col gap-2.5">
+                <div className="text-[10px] text-slate-500 font-extrabold uppercase tracking-widest pl-1 mb-1.5 flex items-center justify-between">
+                  <span>Visited Rooms History</span>
+                  <span className={`px-2 py-0.5 rounded-full text-[9px] ${editorTheme === "vs-dark" ? "bg-slate-800 text-slate-400" : "bg-slate-200 text-slate-600"}`}>
+                    {roomsHistory.length}
+                  </span>
+                </div>
+                
+                {roomsHistory.map((roomId) => {
+                  const isActive = roomId === workspaceId;
+                  const roomRoles = JSON.parse(localStorage.getItem('cod-ide-room-roles') || '{}');
+                  const role = roomRoles[roomId] || "owner";
+                  const roleLabel = role.charAt(0).toUpperCase() + role.slice(1);
+
+                  return (
+                    <div
+                      key={roomId}
+                      className={`group flex flex-col p-3 rounded-xl border transition-all duration-250 cursor-pointer ${
+                        isActive
+                          ? (editorTheme === "vs-dark"
+                              ? "bg-indigo-950/20 border-indigo-500/50 shadow-md shadow-indigo-950/10"
+                              : "bg-indigo-50/60 border-indigo-250 shadow-sm")
+                          : (editorTheme === "vs-dark"
+                              ? "bg-[#18181c] border-slate-800/80 hover:bg-slate-800/20 hover:border-slate-700/60"
+                              : "bg-white border-slate-200 hover:bg-slate-50 hover:border-slate-350")
+                      }`}
+                      onClick={() => handleSwitchRoom(roomId)}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <Globe className={`w-3.5 h-3.5 ${isActive ? "text-indigo-400" : "text-slate-500"}`} />
+                          <span className={`font-mono font-bold text-xs truncate max-w-[120px] ${isActive ? "text-indigo-400" : (editorTheme === "vs-dark" ? "text-slate-200" : "text-slate-700")}`}>
+                            {roomId}
+                          </span>
+                        </div>
+                        {isActive && (
+                          <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider ${editorTheme === "vs-dark" ? "bg-indigo-500/20 text-indigo-300" : "bg-indigo-100 text-indigo-700"}`}>
+                            Active
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center justify-between text-[10px] text-slate-500 mt-1">
+                        <div className="flex items-center gap-1.5">
+                          <span className={`px-1.5 py-0.5 rounded-md font-bold uppercase tracking-wider text-[8px] ${
+                            role === "owner" 
+                              ? "bg-red-500/10 text-red-400 border border-red-500/20" 
+                              : role === "editor" 
+                              ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" 
+                              : "bg-amber-500/10 text-amber-400 border border-amber-500/20"
+                          }`}>
+                            {roleLabel}
+                          </span>
+                        </div>
+
+                        {/* Actions (like delete from history) */}
+                        <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-all duration-200">
+                          {roomId !== "my-room" && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const confirmDelete = window.confirm(`Remove ${roomId} from history?`);
+                                if (confirmDelete) {
+                                  const updatedHistory = roomsHistory.filter(r => r !== roomId);
+                                  setRoomsHistory(updatedHistory);
+                                  localStorage.setItem('cod-ide-rooms-history', JSON.stringify(updatedHistory));
+                                  
+                                  const roles = JSON.parse(localStorage.getItem('cod-ide-room-roles') || '{}');
+                                  delete roles[roomId];
+                                  localStorage.setItem('cod-ide-room-roles', JSON.stringify(roles));
+                                  
+                                  if (isActive) {
+                                    handleSwitchRoom("my-room");
+                                  }
+                                }
+                              }}
+                              className={`p-1 rounded hover:bg-red-500/10 text-slate-500 hover:text-red-400 transition-colors`}
+                              title="Delete room from history"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Left Sidebar drag divider */}
@@ -2707,7 +2936,7 @@ export default function IDELayout() {
                     bracketPairColorization: { enabled: bracketPairColorization },
                     roundedSelection: true,
                     scrollBeyondLastLine: false,
-                    readOnly: false,
+                    readOnly: userRole === "viewer",
                     automaticLayout: true,
                     cursorSmoothCaretAnimation: "on",
                     fontFamily: `${fontFamily}, Menlo, Monaco, Consolas, monospace`,
@@ -2942,11 +3171,13 @@ export default function IDELayout() {
                     <span className="shrink-0">{getTerminalPrompt(clientOS)}&nbsp;</span>
                     <input
                       type="text"
+                      disabled={userRole !== "owner"}
                       value={terminalInput}
                       onChange={(e) => setTerminalInput(e.target.value)}
+                      placeholder={userRole !== "owner" ? "Terminal is read-only (Owner only)" : ""}
                       className={`flex-1 bg-transparent focus:outline-none border-none outline-none ${
                         editorTheme === "vs-dark" ? "text-slate-200 caret-indigo-400" : "text-slate-800 caret-indigo-650"
-                      }`}
+                      } disabled:opacity-50 disabled:cursor-not-allowed`}
                     />
                   </form>
                 </div>
@@ -4089,6 +4320,7 @@ export default function IDELayout() {
         workspaceId={workspaceId}
         activeCollaborators={activeCollaborators}
         onChangeName={handleChangeName}
+        userRole={userRole}
       />
     </div>
   );

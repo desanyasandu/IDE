@@ -8,9 +8,18 @@ interface ShareModalProps {
   workspaceId?: string;
   activeCollaborators?: any[];
   onChangeName?: (newName: string) => void;
+  userRole?: string;
 }
 
-export default function ShareModal({ isOpen, onClose, theme = "vs-dark", workspaceId = "my-room", activeCollaborators = [], onChangeName }: ShareModalProps) {
+export default function ShareModal({ 
+  isOpen, 
+  onClose, 
+  theme = "vs-dark", 
+  workspaceId = "my-room", 
+  activeCollaborators = [], 
+  onChangeName,
+  userRole = "owner"
+}: ShareModalProps) {
   if (!isOpen) return null;
 
   const [inviteRole, setInviteRole] = useState("Editor");
@@ -25,7 +34,8 @@ export default function ShareModal({ isOpen, onClose, theme = "vs-dark", workspa
   ]);
 
   const handleCopyLink = () => {
-    const shareUrl = `${window.location.origin}${window.location.pathname}?room=${workspaceId}`;
+    const roleParam = linkRole.toLowerCase() === "restricted" ? "viewer" : linkRole.toLowerCase();
+    const shareUrl = `${window.location.origin}${window.location.pathname}?room=${workspaceId}&role=${roleParam}`;
     navigator.clipboard.writeText(shareUrl);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -93,26 +103,28 @@ export default function ShareModal({ isOpen, onClose, theme = "vs-dark", workspa
               }`}>
                 <input
                   type="text"
+                  disabled={userRole !== "owner"}
                   value={inviteInput}
                   onChange={(e) => setInviteInput(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') handleInvite();
                   }}
-                  placeholder="Enter usernames or emails..."
+                  placeholder={userRole !== "owner" ? "Only owners can invite..." : "Enter usernames or emails..."}
                   className={`w-full bg-transparent text-sm px-3.5 py-3 outline-none font-mono ${
                     isDark ? "text-white placeholder-slate-600" : "text-slate-800 placeholder-slate-400"
-                  }`}
+                  } disabled:opacity-50 disabled:cursor-not-allowed`}
                 />
               </div>
               <div className="relative group shrink-0">
                 <select
                   value={inviteRole}
+                  disabled={userRole !== "owner"}
                   onChange={(e) => setInviteRole(e.target.value)}
                   className={`appearance-none border text-sm px-4 py-3 pr-8 rounded-xl outline-none cursor-pointer transition-colors shadow-sm ${
                     isDark 
                       ? "bg-[#1b1b22] border-[#2d2d35] text-slate-300 hover:border-slate-500" 
                       : "bg-white border-slate-200 text-slate-700 hover:border-slate-400"
-                  }`}
+                  } disabled:opacity-50 disabled:cursor-not-allowed`}
                 >
                   <option value="Editor">Editor</option>
                   <option value="Viewer">Viewer</option>
@@ -121,7 +133,8 @@ export default function ShareModal({ isOpen, onClose, theme = "vs-dark", workspa
               </div>
               <button
                 onClick={handleInvite}
-                className="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-3 rounded-xl text-sm font-semibold transition-all shadow-md shadow-indigo-900/30 hover:shadow-[0_0_12px_rgba(99,102,241,0.5)] shrink-0 cursor-pointer flex items-center gap-1.5"
+                disabled={userRole !== "owner"}
+                className="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-3 rounded-xl text-sm font-semibold transition-all shadow-md shadow-indigo-900/30 hover:shadow-[0_0_12px_rgba(99,102,241,0.5)] shrink-0 cursor-pointer flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <UserPlus className="w-4 h-4" />
                 Invite
@@ -199,12 +212,12 @@ export default function ShareModal({ isOpen, onClose, theme = "vs-dark", workspa
                           </span>
                         )}
                         <span className="text-[11px] text-slate-500 font-mono">
-                          {collab.isMe ? "owner@antigravity.studio" : `${collab.name.toLowerCase().replace(/\s+/g, '')}@workspace.collab`}
+                          {collab.role === 'owner' ? "owner@antigravity.studio" : `${collab.name.toLowerCase().replace(/\s+/g, '')}@workspace.collab`}
                         </span>
                       </div>
                     </div>
                     <span className="text-xs font-semibold text-slate-500 px-3 uppercase tracking-wider">
-                      {collab.isMe ? "Owner" : "Editor"}
+                      {collab.role ? collab.role.charAt(0).toUpperCase() + collab.role.slice(1) : (collab.isMe ? "Owner" : "Editor")}
                     </span>
                   </div>
                 ))
@@ -221,12 +234,13 @@ export default function ShareModal({ isOpen, onClose, theme = "vs-dark", workspa
                     <div className="relative group shrink-0">
                       <select
                         value={collab.role}
+                        disabled={userRole !== "owner"}
                         onChange={(e) => handleRoleChange(index, e.target.value)}
                         className={`appearance-none bg-transparent border border-transparent text-xs font-medium px-3 py-1.5 pr-7 rounded-lg outline-none cursor-pointer transition-colors ${
                           isDark 
                             ? "hover:bg-slate-800 hover:border-slate-700 text-slate-300" 
                             : "hover:bg-slate-100 hover:border-slate-250 text-slate-750"
-                        }`}
+                        } disabled:opacity-50 disabled:cursor-not-allowed`}
                       >
                         <option value="Editor">Editor</option>
                         <option value="Viewer">Viewer</option>
@@ -260,12 +274,13 @@ export default function ShareModal({ isOpen, onClose, theme = "vs-dark", workspa
             <div className="relative group shrink-0">
               <select
                 value={linkRole}
+                disabled={userRole !== "owner"}
                 onChange={(e) => setLinkRole(e.target.value)}
                 className={`appearance-none bg-transparent border border-transparent text-xs font-medium px-3 py-1.5 pr-7 rounded-lg outline-none cursor-pointer transition-colors ${
                   isDark 
                     ? "hover:bg-slate-800 hover:border-slate-700 text-slate-300" 
                     : "hover:bg-slate-100 hover:border-slate-250 text-slate-750"
-                }`}
+                } disabled:opacity-50 disabled:cursor-not-allowed`}
               >
                 <option value="Restricted">Restricted</option>
                 <option value="Viewer">Viewer</option>
