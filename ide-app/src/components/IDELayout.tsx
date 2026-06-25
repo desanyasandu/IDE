@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useRef } from "react";
 import Editor from "@monaco-editor/react";
 import ShareModal from "./ShareModal";
+import * as Y from "yjs";
+import { WebsocketProvider } from "y-websocket";
+import { MonacoBinding } from "y-monaco";
 import {
   Folder,
   Search,
@@ -48,6 +51,7 @@ import {
 } from "lucide-react";
 
 interface MockFile {
+  id?: string;
   name: string;
   path: string;
   language: string;
@@ -226,7 +230,40 @@ export default function IDELayout() {
     document.addEventListener("mousemove", doDrag);
     document.addEventListener("mouseup", stopDrag);
   };
+  const workspaceId = "my-room";
+  const BACKEND_API_URL = "https://quench-mortified-amaze.ngrok-free.dev";
 
+  // Fetch workspace files from backend on component mount
+  useEffect(() => {
+    const fetchWorkspaceFiles = async () => {
+      try {
+        const response = await fetch(`${BACKEND_API_URL}/workspace/${workspaceId}/files`);
+        if (response.ok) {
+          const data = await response.json();
+          if (Array.isArray(data) && data.length > 0) {
+            const filesMap: Record<string, MockFile> = {};
+            data.forEach((file: any) => {
+              const filePath = file.path || file.name || `src/${file.id || file.name}`;
+              filesMap[filePath] = {
+                id: file.id || file.file_id || filePath,
+                name: file.name,
+                path: filePath,
+                language: file.language || "typescript",
+                content: file.content || ""
+              };
+            });
+            setFiles(filesMap);
+            const paths = Object.keys(filesMap);
+            setOpenTabs(paths);
+            setActiveFilePath(paths[0]);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to fetch files from backend REST API:", err);
+      }
+    };
+    fetchWorkspaceFiles();
+  }, []);
 
   // File explorer states
   const [files, setFiles] = useState<Record<string, MockFile>>(initialFiles);
@@ -303,6 +340,55 @@ export default function IDELayout() {
   const handleEditorDidMount = (editor: any) => {
     editorRef.current = editor;
   };
+
+  // Yjs Collaborative Editing Integration
+  const providerRef = useRef<any>(null);
+  const bindingRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (!editorRef.current) return;
+
+    const doc = new Y.Doc();
+    const cleanRoomName = `workspace-${activeFilePath.replace(/[^a-zA-Z0-9-_]/g, '_')}`;
+    
+    // Connect to Yjs websocket backend
+    const provider = new WebsocketProvider(
+      'ws://quench-mortified-amaze.ngrok-free.dev/ws',
+      cleanRoomName,
+      doc
+    );
+    providerRef.current = provider;
+
+    const ytext = doc.getText('monaco');
+
+    // Populate initial text if Yjs document is empty
+    const currentModel = editorRef.current.getModel();
+    if (ytext.toString() === "" && currentModel) {
+      const val = currentModel.getValue();
+      if (val) {
+        ytext.insert(0, val);
+      }
+    }
+
+    // Bind Yjs shared type to Monaco Editor model
+    const binding = new MonacoBinding(
+      ytext,
+      currentModel,
+      new Set([editorRef.current]),
+      provider.awareness
+    );
+    bindingRef.current = binding;
+
+    provider.on('status', (event: any) => {
+      console.log('Yjs collaboration provider status:', event.status);
+    });
+
+    return () => {
+      binding.destroy();
+      provider.destroy();
+      doc.destroy();
+    };
+  }, [activeFilePath, editorRef.current]);
 
   // Git UI states
   const [isSourceControlExpanded, setIsSourceControlExpanded] = useState(true);
@@ -476,6 +562,96 @@ export default function IDELayout() {
       setOpenTabs(prev => [...prev, path]);
     }
     setActiveFilePath(path);
+  };
+
+  // Create workspace file in backend
+  const handleCreateFile = async () => {
+    const filename = prompt("Enter new filename (e.g., src/index.css):");
+    if (!filename) return;
+
+    let language = "javascript";
+    if (filename.endsWith(".ts") || filename.endsWith(".tsx")) language = "typescript";
+    else if (filename.endsWith(".css")) language = "css";
+    else if (filename.endsWith(".json")) language = "json";
+    else if (filename.endsWith(".html")) language = "html";
+
+    const payload = {
+      name: filename.split('/').pop() || filename,
+      path: filename,
+      content: `// New file ${filename}\n`,
+      language: language
+    };
+
+    try {
+      const response = await fetch(`${BACKEND_API_URL}/workspace/${workspaceId}/files`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      if (response.ok) {
+        const fileData = await response.json();
+        const createdPath = fileData.path || filename;
+        setFiles(prev => ({
+          ...prev,
+          [createdPath]: {
+            id: fileData.id || fileData.file_id || createdPath,
+            name: fileData.name || payload.name,
+            path: createdPath,
+            language: fileData.language || payload.language,
+            content: fileData.content || payload.content
+          }
+        }));
+        handleOpenFile(createdPath);
+      }
+    } catch (err) {
+      console.error("Error creating file on backend:", err);
+      // Local fallback
+      setFiles(prev => ({
+        ...prev,
+        [filename]: {
+          id: filename,
+          name: filename.split('/').pop() || filename,
+          path: filename,
+          language: language,
+          content: `// New file ${filename}\n`
+        }
+      }));
+      handleOpenFile(filename);
+    }
+  };
+
+  // Delete workspace file in backend
+  const handleDeleteFile = async (e: React.MouseEvent, path: string) => {
+    e.stopPropagation();
+    const file = files[path];
+    if (!file) return;
+
+    if (!confirm(`Are you sure you want to delete ${file.name}?`)) return;
+
+    const fileId = file.id || file.name;
+
+    try {
+      const response = await fetch(`${BACKEND_API_URL}/workspace/${workspaceId}/files/${fileId}`, {
+        method: "DELETE"
+      });
+      if (response.ok) {
+        setFiles(prev => {
+          const newFiles = { ...prev };
+          delete newFiles[path];
+          return newFiles;
+        });
+        handleCloseTab(null as any, path);
+      }
+    } catch (err) {
+      console.error("Error deleting file on backend:", err);
+      // Local fallback
+      setFiles(prev => {
+        const newFiles = { ...prev };
+        delete newFiles[path];
+        return newFiles;
+      });
+      handleCloseTab(null as any, path);
+    }
   };
 
   // Close tab
@@ -1213,7 +1389,11 @@ export default function IDELayout() {
               }`}>
                 <span>Explorer: Project</span>
                 <div className="flex items-center gap-1.5">
-                  <button className={`p-1 rounded cursor-pointer transition-colors ${editorTheme === "vs-dark" ? "hover:bg-slate-800/60 text-slate-400 hover:text-white" : "hover:bg-slate-200 text-slate-600 hover:text-slate-900"}`} title="New File">
+                  <button 
+                    onClick={handleCreateFile}
+                    className={`p-1 rounded cursor-pointer transition-colors ${editorTheme === "vs-dark" ? "hover:bg-slate-800/60 text-slate-400 hover:text-white" : "hover:bg-slate-200 text-slate-600 hover:text-slate-900"}`} 
+                    title="New File"
+                  >
                     <Plus className="w-3.5 h-3.5" />
                   </button>
                   <button className={`p-1 rounded cursor-pointer transition-colors ${editorTheme === "vs-dark" ? "hover:bg-slate-800/60 text-slate-400 hover:text-white" : "hover:bg-slate-200 text-slate-600 hover:text-slate-900"}`} title="Refresh">
@@ -1234,106 +1414,43 @@ export default function IDELayout() {
                   >
                     <ChevronDown className={`w-3.5 h-3.5 text-slate-500 transition-transform duration-250 ${!explorerExpanded.root ? "-rotate-90" : ""}`} />
                     <Folder className="w-4.5 h-4.5 text-amber-500 fill-amber-500/10 shrink-0" />
-                    <span>ide-app</span>
+                    <span>Workspace Files</span>
                   </button>
 
                   {explorerExpanded.root && (
                     <div className={`pl-4 mt-0.5 border-l ml-4.5 flex flex-col gap-0.5 ${editorTheme === "vs-dark" ? "border-slate-800/60" : "border-slate-200"}`}>
-                      {/* Src Directory */}
-                      <div>
-                        <button
-                          onClick={() => setExplorerExpanded(prev => ({ ...prev, src: !prev.src }))}
-                          className={`flex items-center gap-1.5 w-full py-1.5 px-2 rounded-lg text-left transition-colors cursor-pointer ${
-                            editorTheme === "vs-dark" ? "hover:bg-slate-800/30 text-slate-300" : "hover:bg-slate-200/50 text-slate-700"
-                          }`}
-                        >
-                          <ChevronDown className={`w-3.5 h-3.5 text-slate-500 transition-transform duration-250 ${!explorerExpanded.src ? "-rotate-90" : ""}`} />
-                          <Folder className="w-4 h-4 text-indigo-400 fill-indigo-400/10 shrink-0" />
-                          <span>src</span>
-                        </button>
-
-                        {explorerExpanded.src && (
-                          <div className={`pl-4 border-l ml-4 flex flex-col gap-0.5 ${editorTheme === "vs-dark" ? "border-slate-800/60" : "border-slate-200"}`}>
-                            {/* Components Directory */}
-                            <div>
-                              <button
-                                onClick={() => setExplorerExpanded(prev => ({ ...prev, components: !prev.components }))}
-                                className={`flex items-center gap-1.5 w-full py-1.5 px-2 rounded-lg text-left transition-colors cursor-pointer ${
-                                  editorTheme === "vs-dark" ? "hover:bg-slate-800/30 text-slate-300" : "hover:bg-slate-200/50 text-slate-700"
-                                }`}
-                              >
-                                <ChevronDown className={`w-3.5 h-3.5 text-slate-500 transition-transform duration-250 ${!explorerExpanded.components ? "-rotate-90" : ""}`} />
-                                <Folder className="w-4 h-4 text-purple-400 fill-purple-400/10 shrink-0" />
-                                <span>components</span>
-                              </button>
-
-                              {explorerExpanded.components && (
-                                <div className={`pl-4 border-l ml-4 flex flex-col gap-0.5 ${editorTheme === "vs-dark" ? "border-slate-800/60" : "border-slate-200"}`}>
-                                  {/* IDELayout.tsx */}
-                                  <button
-                                    onClick={() => handleOpenFile("src/components/IDELayout.tsx")}
-                                    className={`flex items-center gap-2 w-full py-1.5 px-2.5 rounded-lg text-left cursor-pointer transition-all duration-200 ${
-                                      activeFilePath === "src/components/IDELayout.tsx"
-                                        ? (editorTheme === "vs-dark"
-                                            ? "explorer-item-active text-white font-medium shadow-md shadow-indigo-950/20"
-                                            : "bg-indigo-100/60 border-l-2 border-indigo-600 text-indigo-800 font-medium shadow-sm")
-                                        : (editorTheme === "vs-dark" ? "hover:bg-slate-800/30 text-slate-400 hover:text-slate-200" : "hover:bg-slate-200/50 text-slate-600 hover:text-slate-900")
-                                    }`}
-                                  >
-                                    {getFileIcon("src/components/IDELayout.tsx")}
-                                    <span className="font-mono">IDELayout.tsx</span>
-                                  </button>
-                                </div>
-                              )}
-                            </div>
-
-                            {/* App.tsx */}
+                      {Object.keys(files).map((filePath) => {
+                        const file = files[filePath];
+                        return (
+                          <div key={filePath} className="group flex items-center justify-between w-full rounded-lg transition-all duration-200 relative">
                             <button
-                              onClick={() => handleOpenFile("src/App.tsx")}
-                              className={`flex items-center gap-2 w-full py-1.5 px-2.5 rounded-lg text-left cursor-pointer transition-all duration-200 ${
-                                activeFilePath === "src/App.tsx"
+                              onClick={() => handleOpenFile(filePath)}
+                              className={`flex items-center gap-2 flex-1 py-1.5 px-2.5 rounded-lg text-left cursor-pointer transition-all duration-200 ${
+                                activeFilePath === filePath
                                   ? (editorTheme === "vs-dark"
                                       ? "explorer-item-active text-white font-medium shadow-md shadow-indigo-950/20"
                                       : "bg-indigo-100/60 border-l-2 border-indigo-600 text-indigo-800 font-medium shadow-sm")
                                   : (editorTheme === "vs-dark" ? "hover:bg-slate-800/30 text-slate-400 hover:text-slate-200" : "hover:bg-slate-200/50 text-slate-600 hover:text-slate-900")
                               }`}
                             >
-                              {getFileIcon("src/App.tsx")}
-                              <span className="font-mono">App.tsx</span>
+                              {getFileIcon(file.name)}
+                              <span className="font-mono truncate select-none">{file.name}</span>
                             </button>
-
-                            {/* index.css */}
+                            {/* Delete File Button on hover */}
                             <button
-                              onClick={() => handleOpenFile("src/index.css")}
-                              className={`flex items-center gap-2 w-full py-1.5 px-2.5 rounded-lg text-left cursor-pointer transition-all duration-200 ${
-                                activeFilePath === "src/index.css"
-                                  ? (editorTheme === "vs-dark"
-                                      ? "explorer-item-active text-white font-medium shadow-md shadow-indigo-950/20"
-                                      : "bg-indigo-100/60 border-l-2 border-indigo-600 text-indigo-800 font-medium shadow-sm")
-                                  : (editorTheme === "vs-dark" ? "hover:bg-slate-800/30 text-slate-400 hover:text-slate-200" : "hover:bg-slate-200/50 text-slate-600 hover:text-slate-900")
+                              onClick={(e) => handleDeleteFile(e, filePath)}
+                              className={`opacity-0 group-hover:opacity-100 absolute right-2 p-1 rounded transition-colors z-20 cursor-pointer ${
+                                editorTheme === "vs-dark"
+                                  ? "hover:bg-slate-800 text-slate-400 hover:text-red-400"
+                                  : "hover:bg-slate-200 text-slate-500 hover:text-red-600"
                               }`}
+                              title={`Delete ${file.name}`}
                             >
-                              {getFileIcon("src/index.css")}
-                              <span className="font-mono">index.css</span>
+                              <X className="w-3.5 h-3.5" />
                             </button>
                           </div>
-                        )}
-                      </div>
-
-                      {/* package.json */}
-                      <button
-                        onClick={() => handleOpenFile("package.json")}
-                        className={`flex items-center gap-2 w-full py-1.5 px-2.5 rounded-lg text-left cursor-pointer transition-all duration-200 ${
-                          activeFilePath === "package.json"
-                            ? (editorTheme === "vs-dark"
-                                ? "explorer-item-active text-white font-medium shadow-md shadow-indigo-950/20"
-                                : "bg-indigo-100/60 border-l-2 border-indigo-600 text-indigo-800 font-medium shadow-sm")
-                            : (editorTheme === "vs-dark" ? "hover:bg-slate-800/30 text-slate-400 hover:text-slate-200" : "hover:bg-slate-200/50 text-slate-600 hover:text-slate-900")
-                        }`}
-                      >
-                        {getFileIcon("package.json")}
-                        <span className="font-mono">package.json</span>
-                      </button>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
