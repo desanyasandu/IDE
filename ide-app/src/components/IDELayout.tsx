@@ -343,6 +343,15 @@ export default function IDELayout() {
     fetchWorkspaceFiles();
   }, []);
 
+  // Fallback Polling: Fetch workspace files list every 5 seconds to ensure sync
+  // even if WebSocket connection is blocked by ngrok
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchWorkspaceFiles();
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [workspaceId]);
+
   // Editor states
   const [editorTheme, setEditorTheme] = useState<"vs-dark" | "light">("vs-dark");
   const [fontSize, setFontSize] = useState<number>(14);
