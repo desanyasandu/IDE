@@ -293,15 +293,14 @@ export default function IDELayout() {
   const [isEditingName, setIsEditingName] = useState(false);
   const [userNameInput, setUserNameInput] = useState("");
 
-  const handleSaveName = () => {
-    setIsEditingName(false);
-    if (!userNameInput.trim()) return;
+  const handleChangeName = (newName: string) => {
+    if (!newName.trim()) return;
 
     if (localUserRef.current) {
       const newProfile = { 
         ...localUserRef.current, 
-        name: userNameInput.trim(),
-        avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(userNameInput.trim())}&backgroundColor=b6e3f4`
+        name: newName.trim(),
+        avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(newName.trim())}&backgroundColor=b6e3f4`
       };
       localUserRef.current = newProfile;
       if (providerRef.current) {
@@ -324,6 +323,11 @@ export default function IDELayout() {
         setActiveCollaborators(collabs);
       }
     }
+  };
+
+  const handleSaveName = () => {
+    setIsEditingName(false);
+    handleChangeName(userNameInput);
   };
 
   // New Editor Settings
@@ -3275,6 +3279,7 @@ export default function IDELayout() {
         theme={editorTheme}
         workspaceId={workspaceId}
         activeCollaborators={activeCollaborators}
+        onChangeName={handleChangeName}
       />
     </div>
   );

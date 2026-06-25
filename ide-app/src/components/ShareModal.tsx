@@ -7,15 +7,18 @@ interface ShareModalProps {
   theme?: "vs-dark" | "light";
   workspaceId?: string;
   activeCollaborators?: any[];
+  onChangeName?: (newName: string) => void;
 }
 
-export default function ShareModal({ isOpen, onClose, theme = "vs-dark", workspaceId = "my-room", activeCollaborators = [] }: ShareModalProps) {
+export default function ShareModal({ isOpen, onClose, theme = "vs-dark", workspaceId = "my-room", activeCollaborators = [], onChangeName }: ShareModalProps) {
   if (!isOpen) return null;
 
   const [inviteRole, setInviteRole] = useState("Editor");
   const [linkRole, setLinkRole] = useState("Viewer");
   const [copied, setCopied] = useState(false);
   const [inviteInput, setInviteInput] = useState("");
+  const [isEditingMyName, setIsEditingMyName] = useState(false);
+  const [myNameInput, setMyNameInput] = useState("");
   const [collaborators, setCollaborators] = useState([
     { name: "Alex (AI Expert)", email: "alex@example.com", avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Alex&backgroundColor=b6e3f4", role: "Editor" },
     { name: "Sam Designer", email: "sam@example.com", avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Sam&backgroundColor=c0aede", role: "Viewer" }
@@ -154,9 +157,47 @@ export default function ShareModal({ isOpen, onClose, theme = "vs-dark", workspa
                     <div className="flex items-center gap-3">
                       <img src={collab.avatar} className={`w-9 h-9 rounded-full border shadow-sm ${isDark ? "border-slate-700/80" : "border-slate-200"}`} alt={collab.name} />
                       <div className="flex flex-col">
-                        <span className={`text-sm font-semibold transition-colors duration-250 ${isDark ? "text-slate-200" : "text-slate-750"}`}>
-                          {collab.name} {collab.isMe && "(You)"}
-                        </span>
+                        {collab.isMe && isEditingMyName ? (
+                          <input
+                            type="text"
+                            value={myNameInput}
+                            onChange={(e) => setMyNameInput(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                if (myNameInput.trim()) {
+                                  onChangeName?.(myNameInput.trim());
+                                  setIsEditingMyName(false);
+                                }
+                              }
+                              if (e.key === "Escape") {
+                                setIsEditingMyName(false);
+                              }
+                            }}
+                            onBlur={() => {
+                              if (myNameInput.trim()) {
+                                onChangeName?.(myNameInput.trim());
+                              }
+                              setIsEditingMyName(false);
+                            }}
+                            autoFocus
+                            className={`bg-transparent text-sm font-semibold outline-none border-b border-indigo-500 transition-colors ${
+                              isDark ? "text-white" : "text-slate-800"
+                            }`}
+                          />
+                        ) : (
+                          <span 
+                            onClick={() => {
+                              if (collab.isMe) {
+                                setMyNameInput(collab.name);
+                                setIsEditingMyName(true);
+                              }
+                            }}
+                            className={`text-sm font-semibold transition-colors duration-250 ${collab.isMe ? "cursor-pointer hover:underline hover:text-indigo-400" : ""} ${isDark ? "text-slate-200" : "text-slate-750"}`}
+                            title={collab.isMe ? "Click to change name" : undefined}
+                          >
+                            {collab.name} {collab.isMe && "(You)"}
+                          </span>
+                        )}
                         <span className="text-[11px] text-slate-500 font-mono">
                           {collab.isMe ? "owner@antigravity.studio" : `${collab.name.toLowerCase().replace(/\s+/g, '')}@workspace.collab`}
                         </span>
