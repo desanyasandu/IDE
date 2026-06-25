@@ -485,6 +485,247 @@ export default function IDELayout() {
     };
   }, [activeFilePath, editorRef.current, providerReady]);
 
+  // Call settings state
+  const [isMuted, setIsMuted] = useState(false);
+  const [isDeafened, setIsDeafened] = useState(false);
+  const [isSharingScreen, setIsSharingScreen] = useState(false);
+
+  // WebRTC Call Refs
+  const peerConnectionsRef = useRef<Record<string, RTCPeerConnection>>({});
+  const localStreamRef = useRef<MediaStream | null>(null);
+  const audioElementsRef = useRef<Record<string, HTMLAudioElement>>({});
+  const localAudioTrackRef = useRef<MediaStreamTrack | null>(null);
+
+  // WebRTC Audio Calls & Signalling via Yjs
+  useEffect(() => {
+    if (!providerReady || !ydocRef.current || !providerRef.current) return;
+
+    const doc = ydocRef.current;
+    const provider = providerRef.current;
+    const myClientID = provider.awareness.clientID;
+
+    // Get or create signaling map
+    const signalingMap = doc.getMap('webrtc-signaling');
+
+    // Tries to request audio stream if call is active
+    const setupLocalStream = async () => {
+      if (isCallActive && !localStreamRef.current) {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          localStreamRef.current = stream;
+          const track = stream.getAudioTracks()[0];
+          localAudioTrackRef.current = track;
+          // Toggle track state based on mute/deafen
+          track.enabled = !isMuted && !isDeafened;
+          
+          // Attach track to existing RTCPeerConnections
+          Object.values(peerConnectionsRef.current).forEach((pc) => {
+            const senders = pc.getSenders();
+            const audioSender = senders.find(s => s.track && s.track.kind === 'audio');
+            if (audioSender) {
+              audioSender.replaceTrack(track);
+            } else {
+              pc.addTrack(track, stream);
+            }
+          });
+        } catch (err) {
+          console.warn("Failed to get microphone stream:", err);
+        }
+      }
+    };
+
+    setupLocalStream();
+
+    // Toggle track enablement dynamically when isMuted/isDeafened changes
+    if (localAudioTrackRef.current) {
+      localAudioTrackRef.current.enabled = !isMuted && !isDeafened;
+    }
+
+    // Connect to a collaborator
+    const getOrCreatePeerConnection = (collabId: string) => {
+      const pcId = collabId.toString();
+      if (peerConnectionsRef.current[pcId]) {
+        return peerConnectionsRef.current[pcId];
+      }
+
+      const pc = new RTCPeerConnection({
+        iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+      });
+
+      peerConnectionsRef.current[pcId] = pc;
+
+      // Add local track if available
+      if (localStreamRef.current && localAudioTrackRef.current) {
+        pc.addTrack(localAudioTrackRef.current, localStreamRef.current);
+      }
+
+      // Send local ICE candidates to the target collaborator
+      pc.onicecandidate = (event) => {
+        if (event.candidate) {
+          const candidateKey = `ice_${myClientID}_${collabId}_${Date.now()}`;
+          signalingMap.set(candidateKey, JSON.stringify({
+            candidate: event.candidate,
+            target: collabId,
+            from: myClientID
+          }));
+        }
+      };
+
+      // Play remote audio stream when received
+      pc.ontrack = (event) => {
+        const remoteStream = event.streams[0];
+        if (remoteStream) {
+          let audio = audioElementsRef.current[pcId];
+          if (!audio) {
+            audio = document.createElement('audio');
+            audio.autoplay = true;
+            audio.style.display = 'none';
+            document.body.appendChild(audio);
+            audioElementsRef.current[pcId] = audio;
+          }
+          audio.srcObject = remoteStream;
+          audio.muted = isDeafened; // Mute remote audio if local is deafened
+          audio.play().catch(e => console.warn("Failed to auto-play remote audio:", e));
+        }
+      };
+
+      return pc;
+    };
+
+    // Clean up disconnected collaborators
+    const collabIds = activeCollaborators.map(c => c.id.toString());
+    Object.keys(peerConnectionsRef.current).forEach((pcId) => {
+      if (pcId !== myClientID.toString() && !collabIds.includes(pcId)) {
+        // Disconnected
+        peerConnectionsRef.current[pcId].close();
+        delete peerConnectionsRef.current[pcId];
+        if (audioElementsRef.current[pcId]) {
+          audioElementsRef.current[pcId].remove();
+          delete audioElementsRef.current[pcId];
+        }
+      }
+    });
+
+    // Handle incoming signals
+    const handleSignalingObserve = (event: any) => {
+      event.changes.keys.forEach((change: any, key: string) => {
+        if (change.action === 'add' || change.action === 'update') {
+          try {
+            const raw = signalingMap.get(key) as string;
+            if (!raw) return;
+            const data = JSON.parse(raw);
+
+            // Verify the message is intended for us
+            if (data.target?.toString() !== myClientID.toString()) return;
+
+            const fromId = data.from?.toString();
+            if (!fromId) return;
+
+            const pc = getOrCreatePeerConnection(fromId);
+
+            if (key.startsWith('offer_')) {
+              // Received Offer
+              pc.setRemoteDescription(new RTCSessionDescription(data.offer))
+                .then(() => {
+                  if (localStreamRef.current && localAudioTrackRef.current) {
+                    // Make sure tracks are added if not already
+                    const senders = pc.getSenders();
+                    if (!senders.some(s => s.track === localAudioTrackRef.current)) {
+                      pc.addTrack(localAudioTrackRef.current, localStreamRef.current);
+                    }
+                  }
+                  return pc.createAnswer();
+                })
+                .then((answer) => {
+                  return pc.setLocalDescription(answer).then(() => {
+                    const answerKey = `answer_${myClientID}_${fromId}`;
+                    signalingMap.set(answerKey, JSON.stringify({
+                      answer,
+                      target: fromId,
+                      from: myClientID
+                    }));
+                  });
+                })
+                .catch(err => console.error("Error handling WebRTC offer:", err));
+            } else if (key.startsWith('answer_')) {
+              // Received Answer
+              pc.setRemoteDescription(new RTCSessionDescription(data.answer))
+                .catch(err => console.error("Error setting remote answer:", err));
+            } else if (key.startsWith('ice_')) {
+              // Received ICE Candidate
+              if (pc.remoteDescription) {
+                pc.addIceCandidate(new RTCIceCandidate(data.candidate))
+                  .catch(err => console.error("Error adding ICE candidate:", err));
+              } else {
+                // Queue the candidate if description is not set yet
+                const checkInterval = setInterval(() => {
+                  if (pc.remoteDescription) {
+                    pc.addIceCandidate(new RTCIceCandidate(data.candidate))
+                      .catch(err => console.error("Error adding ICE candidate:", err));
+                    clearInterval(checkInterval);
+                  }
+                }, 100);
+                setTimeout(() => clearInterval(checkInterval), 5000);
+              }
+            }
+          } catch (e) {
+            console.error("Error parsing signaling data:", e);
+          }
+        }
+      });
+    };
+
+    signalingMap.observe(handleSignalingObserve);
+
+    // Initiator logic: connect to collaborators with lower client ID
+    activeCollaborators.forEach((collab) => {
+      const collabIdNum = collab.id;
+      // If we are the initiator (lower clientID wins, or simply deterministic choice)
+      if (collabIdNum !== myClientID && myClientID < collabIdNum) {
+        const pc = getOrCreatePeerConnection(collabIdNum.toString());
+        // Create offer if not already offering
+        if (pc.signalingState === 'stable') {
+          pc.createOffer()
+            .then((offer) => {
+              return pc.setLocalDescription(offer).then(() => {
+                const offerKey = `offer_${myClientID}_${collabIdNum}`;
+                signalingMap.set(offerKey, JSON.stringify({
+                  offer,
+                  target: collabIdNum.toString(),
+                  from: myClientID
+                }));
+              });
+            })
+            .catch(err => console.error("Error creating WebRTC offer:", err));
+        }
+      }
+    });
+
+    // Deafen adjustment for existing audio elements
+    Object.values(audioElementsRef.current).forEach((audio) => {
+      audio.muted = isDeafened;
+    });
+
+    return () => {
+      signalingMap.unobserve(handleSignalingObserve);
+    };
+  }, [providerReady, activeCollaborators.length, isCallActive, isMuted, isDeafened]);
+
+  // Clean up WebRTC on unmount
+  useEffect(() => {
+    return () => {
+      Object.values(peerConnectionsRef.current).forEach(pc => pc.close());
+      peerConnectionsRef.current = {};
+      Object.values(audioElementsRef.current).forEach(audio => audio.remove());
+      audioElementsRef.current = {};
+      if (localStreamRef.current) {
+        localStreamRef.current.getTracks().forEach(track => track.stop());
+        localStreamRef.current = null;
+      }
+      localAudioTrackRef.current = null;
+    };
+  }, []);
+
   // Git UI states
   const [isSourceControlExpanded, setIsSourceControlExpanded] = useState(true);
   const [isGraphExpanded, setIsGraphExpanded] = useState(true);
@@ -512,10 +753,7 @@ export default function IDELayout() {
     }
   };
 
-  // Call settings state
-  const [isMuted, setIsMuted] = useState(false);
-  const [isDeafened, setIsDeafened] = useState(false);
-  const [isSharingScreen, setIsSharingScreen] = useState(false);
+
 
   // Dragging logic for Collab Session panel
   const [callPanelPos, setCallPanelPos] = useState({ x: 0, y: 0 });
