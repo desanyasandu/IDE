@@ -5,9 +5,11 @@ interface ShareModalProps {
   isOpen: boolean;
   onClose: () => void;
   theme?: "vs-dark" | "light";
+  workspaceId?: string;
+  activeCollaborators?: any[];
 }
 
-export default function ShareModal({ isOpen, onClose, theme = "vs-dark" }: ShareModalProps) {
+export default function ShareModal({ isOpen, onClose, theme = "vs-dark", workspaceId = "my-room", activeCollaborators = [] }: ShareModalProps) {
   if (!isOpen) return null;
 
   const [inviteRole, setInviteRole] = useState("Editor");
@@ -20,7 +22,8 @@ export default function ShareModal({ isOpen, onClose, theme = "vs-dark" }: Share
   ]);
 
   const handleCopyLink = () => {
-    navigator.clipboard.writeText("desan.demo.link");
+    const shareUrl = `${window.location.origin}${window.location.pathname}?room=${workspaceId}`;
+    navigator.clipboard.writeText(shareUrl);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -143,33 +146,54 @@ export default function ShareModal({ isOpen, onClose, theme = "vs-dark" }: Share
               </div>
 
               {/* Dynamic Collaborators */}
-              {collaborators.map((collab, index) => (
-                <div key={index} className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <img src={collab.avatar} className={`w-9 h-9 rounded-full border shadow-sm ${isDark ? "border-slate-700/80" : "border-slate-200"}`} alt={collab.name} />
-                    <div className="flex flex-col">
-                      <span className={`text-sm font-semibold transition-colors duration-250 ${isDark ? "text-slate-200" : "text-slate-750"}`}>{collab.name}</span>
-                      <span className="text-[11px] text-slate-500 font-mono">{collab.email}</span>
+              {activeCollaborators && activeCollaborators.length > 0 ? (
+                activeCollaborators.map((collab) => (
+                  <div key={collab.id} className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <img src={collab.avatar} className={`w-9 h-9 rounded-full border shadow-sm ${isDark ? "border-slate-700/80" : "border-slate-200"}`} alt={collab.name} />
+                      <div className="flex flex-col">
+                        <span className={`text-sm font-semibold transition-colors duration-250 ${isDark ? "text-slate-200" : "text-slate-750"}`}>
+                          {collab.name} {collab.isMe && "(You)"}
+                        </span>
+                        <span className="text-[11px] text-slate-500 font-mono">
+                          {collab.isMe ? "owner@antigravity.studio" : `${collab.name.toLowerCase().replace(/\s+/g, '')}@workspace.collab`}
+                        </span>
+                      </div>
+                    </div>
+                    <span className="text-xs font-semibold text-slate-500 px-3 uppercase tracking-wider">
+                      {collab.isMe ? "Owner" : "Editor"}
+                    </span>
+                  </div>
+                ))
+              ) : (
+                collaborators.map((collab, index) => (
+                  <div key={index} className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <img src={collab.avatar} className={`w-9 h-9 rounded-full border shadow-sm ${isDark ? "border-slate-700/80" : "border-slate-200"}`} alt={collab.name} />
+                      <div className="flex flex-col">
+                        <span className={`text-sm font-semibold transition-colors duration-250 ${isDark ? "text-slate-200" : "text-slate-750"}`}>{collab.name}</span>
+                        <span className="text-[11px] text-slate-500 font-mono">{collab.email}</span>
+                      </div>
+                    </div>
+                    <div className="relative group shrink-0">
+                      <select
+                        value={collab.role}
+                        onChange={(e) => handleRoleChange(index, e.target.value)}
+                        className={`appearance-none bg-transparent border border-transparent text-xs font-medium px-3 py-1.5 pr-7 rounded-lg outline-none cursor-pointer transition-colors ${
+                          isDark 
+                            ? "hover:bg-slate-800 hover:border-slate-700 text-slate-300" 
+                            : "hover:bg-slate-100 hover:border-slate-250 text-slate-750"
+                        }`}
+                      >
+                        <option value="Editor">Editor</option>
+                        <option value="Viewer">Viewer</option>
+                        <option value="Remove">Remove access</option>
+                      </select>
+                      <ChevronDown className="w-3.5 h-3.5 absolute right-2 top-2 text-slate-400 pointer-events-none" />
                     </div>
                   </div>
-                  <div className="relative group shrink-0">
-                    <select
-                      value={collab.role}
-                      onChange={(e) => handleRoleChange(index, e.target.value)}
-                      className={`appearance-none bg-transparent border border-transparent text-xs font-medium px-3 py-1.5 pr-7 rounded-lg outline-none cursor-pointer transition-colors ${
-                        isDark 
-                          ? "hover:bg-slate-800 hover:border-slate-700 text-slate-300" 
-                          : "hover:bg-slate-100 hover:border-slate-250 text-slate-750"
-                      }`}
-                    >
-                      <option value="Editor">Editor</option>
-                      <option value="Viewer">Viewer</option>
-                      <option value="Remove">Remove access</option>
-                    </select>
-                    <ChevronDown className="w-3.5 h-3.5 absolute right-2 top-2 text-slate-400 pointer-events-none" />
-                  </div>
-                </div>
-              ))}
+                ))
+              )}
 
             </div>
           </div>

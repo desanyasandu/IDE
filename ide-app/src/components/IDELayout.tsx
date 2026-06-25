@@ -230,7 +230,7 @@ export default function IDELayout() {
     document.addEventListener("mousemove", doDrag);
     document.addEventListener("mouseup", stopDrag);
   };
-  const workspaceId = "my-room";
+  const [workspaceId] = useState<string>(() => new URLSearchParams(window.location.search).get('room') || "my-room");
   const BACKEND_API_URL = "https://quench-mortified-amaze.ngrok-free.dev";
 
   // Fetch workspace files from backend on component mount
@@ -289,6 +289,7 @@ export default function IDELayout() {
   const [tabSize, setTabSize] = useState<number>(2);
   const [cursorBlinking, setCursorBlinking] = useState<"smooth" | "blink" | "solid" | "expand">("smooth");
   const [autoSave, setAutoSave] = useState<boolean>(false);
+  const [activeCollaborators, setActiveCollaborators] = useState<any[]>([]);
 
   // New Editor Settings
   const [fontFamily, setFontFamily] = useState<string>("Fira Code");
@@ -342,24 +343,82 @@ export default function IDELayout() {
   };
 
   // Yjs Collaborative Editing Integration
+  const ydocRef = useRef<Y.Doc | null>(null);
   const providerRef = useRef<any>(null);
   const bindingRef = useRef<any>(null);
+  const localUserRef = useRef<any>(null);
+  const [providerReady, setProviderReady] = useState(false);
 
+  // 1. Workspace-wide connection & awareness state
   useEffect(() => {
-    if (!editorRef.current) return;
-
     const doc = new Y.Doc();
-    const cleanRoomName = `workspace-${activeFilePath.replace(/[^a-zA-Z0-9-_]/g, '_')}`;
-    
-    // Connect to Yjs websocket backend
+    ydocRef.current = doc;
+
+    // Connect to Yjs websocket backend using WSS for the entire workspace (global room)
     const provider = new WebsocketProvider(
-      'ws://quench-mortified-amaze.ngrok-free.dev/ws',
-      cleanRoomName,
+      'wss://quench-mortified-amaze.ngrok-free.dev/ws',
+      workspaceId,
       doc
     );
     providerRef.current = provider;
 
-    const ytext = doc.getText('monaco');
+    // Set local client awareness profile
+    if (!localUserRef.current) {
+      const randomSeed = Math.floor(Math.random() * 1000);
+      localUserRef.current = {
+        name: `User-${randomSeed}`,
+        avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=User-${randomSeed}&backgroundColor=b6e3f4`,
+        color: '#' + Math.floor(Math.random()*16777215).toString(16)
+      };
+    }
+    provider.awareness.setLocalStateField('user', localUserRef.current);
+
+    const handleAwarenessUpdate = () => {
+      const states = provider.awareness.getStates();
+      const collabs: any[] = [];
+      states.forEach((state: any, clientID: number) => {
+        if (state.user) {
+          collabs.push({
+            id: clientID,
+            name: state.user.name,
+            avatar: state.user.avatar,
+            color: state.user.color,
+            isMe: clientID === provider.awareness.clientID
+          });
+        }
+      });
+      setActiveCollaborators(collabs);
+    };
+
+    provider.awareness.on('change', handleAwarenessUpdate);
+    handleAwarenessUpdate();
+
+    setProviderReady(true);
+
+    provider.on('status', (event: any) => {
+      console.log('Yjs collaboration provider status:', event.status);
+    });
+
+    return () => {
+      setProviderReady(false);
+      provider.awareness.off('change', handleAwarenessUpdate);
+      provider.destroy();
+      doc.destroy();
+      ydocRef.current = null;
+      providerRef.current = null;
+    };
+  }, [workspaceId]);
+
+  // 2. Monaco binding per file
+  useEffect(() => {
+    if (!providerReady || !editorRef.current || !ydocRef.current || !providerRef.current) return;
+
+    const doc = ydocRef.current;
+    const provider = providerRef.current;
+
+    // Sanitize path to be used as Yjs text type identifier
+    const safePath = activeFilePath.replace(/[^a-zA-Z0-9-_]/g, '_');
+    const ytext = doc.getText(safePath);
 
     // Populate initial text if Yjs document is empty
     const currentModel = editorRef.current.getModel();
@@ -379,16 +438,13 @@ export default function IDELayout() {
     );
     bindingRef.current = binding;
 
-    provider.on('status', (event: any) => {
-      console.log('Yjs collaboration provider status:', event.status);
-    });
-
     return () => {
-      binding.destroy();
-      provider.destroy();
-      doc.destroy();
+      if (bindingRef.current) {
+        bindingRef.current.destroy();
+        bindingRef.current = null;
+      }
     };
-  }, [activeFilePath, editorRef.current]);
+  }, [activeFilePath, editorRef.current, providerReady]);
 
   // Git UI states
   const [isSourceControlExpanded, setIsSourceControlExpanded] = useState(true);
@@ -2242,28 +2298,30 @@ export default function IDELayout() {
               <div className={`p-4 grid grid-cols-2 gap-3 ${
                 editorTheme === "vs-dark" ? "bg-[#0d0d10]/40" : "bg-slate-50/50"
               }`}>
-                {/* User 1 */}
-                <div className={`relative aspect-square rounded-xl overflow-hidden border-2 flex flex-col items-center justify-center group transition-all duration-300 ${
-                  editorTheme === "vs-dark" ? "bg-slate-800/50" : "bg-slate-100 border-slate-200"
-                } ${
-                  isMuted ? "border-red-500/50 shadow-[0_0_15px_rgba(239,68,68,0.15)]" : "border-emerald-500/50 shadow-[0_0_15px_rgba(16,185,129,0.15)]"
-                }`}>
-                  <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Alex&backgroundColor=b6e3f4" className="w-14 h-14 rounded-full" alt="Alex" />
-                  <div className="absolute bottom-1.5 left-2 right-2 bg-black/60 backdrop-blur-md rounded-md px-1.5 py-0.5 flex items-center justify-between">
-                    <span className="text-[9px] font-medium text-white truncate">Alex (You)</span>
-                    {isMuted ? <MicOff className="w-2.5 h-2.5 text-red-400" /> : <Mic className="w-2.5 h-2.5 text-emerald-400" />}
+                {activeCollaborators.map((collab) => (
+                  <div 
+                    key={collab.id} 
+                    className={`relative aspect-square rounded-xl overflow-hidden border-2 flex flex-col items-center justify-center group transition-all duration-300 ${
+                      editorTheme === "vs-dark" ? "bg-slate-800/50" : "bg-slate-100 border-slate-200"
+                    } ${
+                      collab.isMe 
+                        ? (isMuted ? "border-red-500/50 shadow-[0_0_15px_rgba(239,68,68,0.15)]" : "border-emerald-500/50 shadow-[0_0_15px_rgba(16,185,129,0.15)]") 
+                        : "border-slate-700/50"
+                    }`}
+                  >
+                    <img src={collab.avatar} className="w-14 h-14 rounded-full" alt={collab.name} />
+                    <div className="absolute bottom-1.5 left-2 right-2 bg-black/60 backdrop-blur-md rounded-md px-1.5 py-0.5 flex items-center justify-between">
+                      <span className="text-[9px] font-medium text-white truncate">
+                        {collab.name} {collab.isMe && "(You)"}
+                      </span>
+                      {collab.isMe ? (
+                        isMuted ? <MicOff className="w-2.5 h-2.5 text-red-400" /> : <Mic className="w-2.5 h-2.5 text-emerald-400" />
+                      ) : (
+                        <Mic className="w-2.5 h-2.5 text-emerald-400" />
+                      )}
+                    </div>
                   </div>
-                </div>
-                {/* User 2 */}
-                <div className={`relative aspect-square rounded-xl overflow-hidden border flex flex-col items-center justify-center group ${
-                  editorTheme === "vs-dark" ? "bg-slate-800/50 border-slate-700/50" : "bg-slate-100 border-slate-200"
-                }`}>
-                  <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Sam&backgroundColor=c0aede" className="w-14 h-14 rounded-full opacity-80" alt="Sam" />
-                  <div className="absolute bottom-1.5 left-2 right-2 bg-black/60 backdrop-blur-md rounded-md px-1.5 py-0.5 flex items-center justify-between">
-                    <span className="text-[9px] font-medium text-white truncate">Sam</span>
-                    <MicOff className="w-2.5 h-2.5 text-red-400" />
-                  </div>
-                </div>
+                ))}
                 {/* AI Agent Avatar */}
                 <div className={`relative aspect-square rounded-xl overflow-hidden border-2 flex flex-col items-center justify-center group col-span-2 h-28 ${
                   editorTheme === "vs-dark" 
@@ -3154,6 +3212,8 @@ export default function IDELayout() {
         isOpen={isShareModalOpen}
         onClose={() => setIsShareModalOpen(false)}
         theme={editorTheme}
+        workspaceId={workspaceId}
+        activeCollaborators={activeCollaborators}
       />
     </div>
   );
