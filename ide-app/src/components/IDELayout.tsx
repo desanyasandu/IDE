@@ -737,6 +737,36 @@ export default function IDELayout() {
     const handleAwarenessUpdate = () => {
       const states = provider.awareness.getStates();
       const collabs: any[] = [];
+      
+      let styleEl = document.getElementById('yjs-cursor-styles');
+      if (!styleEl) {
+        styleEl = document.createElement('style');
+        styleEl.id = 'yjs-cursor-styles';
+        document.head.appendChild(styleEl);
+      }
+
+      let cssRules = '';
+
+      // Helper to calculate contrast color (black or white text based on background brightness)
+      const getContrastColor = (hexColor: string) => {
+        if (!hexColor || hexColor.charAt(0) !== '#') return '#ffffff';
+        const hex = hexColor.substring(1);
+        let r = 0, g = 0, b = 0;
+        if (hex.length === 3) {
+          r = parseInt(hex.charAt(0) + hex.charAt(0), 16);
+          g = parseInt(hex.charAt(1) + hex.charAt(1), 16);
+          b = parseInt(hex.charAt(2) + hex.charAt(2), 16);
+        } else if (hex.length === 6) {
+          r = parseInt(hex.substring(0, 2), 16);
+          g = parseInt(hex.substring(2, 4), 16);
+          b = parseInt(hex.substring(4, 6), 16);
+        } else {
+          return '#ffffff';
+        }
+        const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+        return luminance > 0.6 ? '#0f172a' : '#ffffff';
+      };
+
       states.forEach((state: any, clientID: number) => {
         if (state.user) {
           collabs.push({
@@ -748,8 +778,48 @@ export default function IDELayout() {
             isSharingScreen: !!state.user.isSharingScreen,
             role: state.user.role || 'editor'
           });
+
+          // Generate cursor styles for remote collaborators
+          if (clientID !== provider.awareness.clientID) {
+            const color = state.user.color || '#8b5cf6';
+            const name = state.user.name || 'Collaborator';
+            const textColor = getContrastColor(color);
+
+            cssRules += `
+              .yRemoteSelection-${clientID} {
+                background-color: ${color}26 !important; /* ~15% transparency */
+              }
+              .yRemoteSelectionHead-${clientID} {
+                position: absolute;
+                border-left: 2px solid ${color} !important;
+                height: 100%;
+                box-sizing: border-box;
+              }
+              .yRemoteSelectionHead-${clientID}::after {
+                content: "${name}";
+                position: absolute;
+                top: -19px;
+                left: -2px;
+                font-size: 9px;
+                font-family: system-ui, -apple-system, sans-serif;
+                font-weight: 600;
+                background-color: ${color};
+                color: ${textColor};
+                padding: 1.5px 5.5px;
+                border-radius: 3px;
+                border-bottom-left-radius: 0;
+                white-space: nowrap;
+                pointer-events: none;
+                opacity: 0.95;
+                z-index: 100;
+                box-shadow: 0 1.5px 3px rgba(0, 0, 0, 0.3);
+              }
+            `;
+          }
         }
       });
+
+      styleEl.textContent = cssRules;
       setActiveCollaborators(collabs);
     };
 
@@ -820,6 +890,12 @@ export default function IDELayout() {
       doc.destroy();
       ydocRef.current = null;
       providerRef.current = null;
+
+      // Clean up dynamic styles
+      const styleEl = document.getElementById('yjs-cursor-styles');
+      if (styleEl) {
+        styleEl.remove();
+      }
     };
   }, [workspaceId]);
 
