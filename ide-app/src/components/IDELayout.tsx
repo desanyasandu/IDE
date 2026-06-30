@@ -54,7 +54,8 @@ import {
   Maximize2,
   Minimize2,
   Globe,
-  Edit2
+  Edit2,
+  History
 } from "lucide-react";
 
 interface MockFile {
@@ -360,11 +361,28 @@ export default function IDELayout() {
   const [files, setFiles] = useState<Record<string, MockFile>>(initialFiles);
   const [activeFilePath, setActiveFilePath] = useState<string>("");
   const [openTabs, setOpenTabs] = useState<string[]>([]);
-  const [explorerExpanded, setExplorerExpanded] = useState({
+  const [explorerExpanded, setExplorerExpanded] = useState<Record<string, boolean>>({
     src: true,
     components: true,
-    root: true
+    root: true,
+    recent: true
   });
+
+  const [recentFiles, setRecentFiles] = useState<string[]>([]);
+
+  useEffect(() => {
+    const saved = localStorage.getItem(`recent-files-${workspaceId}`);
+    setRecentFiles(saved ? JSON.parse(saved) : []);
+  }, [workspaceId]);
+
+  const addToRecentFiles = useCallback((filePath: string) => {
+    setRecentFiles(prev => {
+      const filtered = prev.filter(f => f !== filePath);
+      const updated = [filePath, ...filtered].slice(0, 10);
+      localStorage.setItem(`recent-files-${workspaceId}`, JSON.stringify(updated));
+      return updated;
+    });
+  }, [workspaceId]);
 
   // Bug 7 fix: Wrap fetchWorkspaceFiles in useCallback to avoid stale closures
   const fetchWorkspaceFiles = useCallback(async () => {
@@ -1443,6 +1461,7 @@ export default function IDELayout() {
       setOpenTabs(prev => [...prev, path]);
     }
     setActiveFilePath(path);
+    addToRecentFiles(path);
   };
 
   // Create workspace file in backend
@@ -1539,6 +1558,11 @@ export default function IDELayout() {
           const newFiles = { ...prev };
           delete newFiles[path];
           return newFiles;
+        });
+        setRecentFiles(prev => {
+          const updated = prev.filter(f => f !== path);
+          localStorage.setItem(`recent-files-${workspaceId}`, JSON.stringify(updated));
+          return updated;
         });
         handleCloseTab(null as any, path);
 
@@ -2347,6 +2371,54 @@ export default function IDELayout() {
 
               {/* Explorer File Tree */}
               <div className="flex-1 overflow-y-auto p-2 scrollbar-thin">
+                {/* Recent Files Section */}
+                <div className="mb-4">
+                  <button
+                    onClick={() => setExplorerExpanded(prev => ({ ...prev, recent: !prev.recent }))}
+                    className={`flex items-center gap-1.5 w-full py-2 px-2 rounded-lg text-left font-semibold transition-colors cursor-pointer ${
+                      editorTheme === "vs-dark" ? "hover:bg-slate-800/30 text-slate-300" : "hover:bg-slate-200/50 text-slate-700"
+                    }`}
+                  >
+                    <ChevronDown className={`w-3.5 h-3.5 text-slate-500 transition-transform duration-250 ${!explorerExpanded.recent ? "-rotate-90" : ""}`} />
+                    <History className="w-4 h-4 text-indigo-400 shrink-0" />
+                    <span>Recent Files</span>
+                  </button>
+
+                  {explorerExpanded.recent && (
+                    <div className={`pl-4 mt-0.5 border-l ml-4.5 flex flex-col gap-0.5 ${editorTheme === "vs-dark" ? "border-slate-800/60" : "border-slate-200"}`}>
+                      {recentFiles.filter(fp => files[fp]).length === 0 ? (
+                        <div className="py-2 px-2.5 text-slate-500 italic select-none">No recent files</div>
+                      ) : (
+                        recentFiles.filter(fp => files[fp]).map((filePath) => {
+                          const file = files[filePath];
+                          return (
+                            <div key={filePath} className="group flex flex-col w-full rounded-lg transition-all duration-200">
+                              <button
+                                onClick={() => handleOpenFile(filePath)}
+                                className={`flex flex-col items-start gap-0.5 w-full py-1.5 px-2.5 rounded-lg text-left cursor-pointer transition-all duration-200 ${
+                                  activeFilePath === filePath
+                                    ? (editorTheme === "vs-dark"
+                                        ? "explorer-item-active text-white font-medium shadow-md shadow-indigo-950/20"
+                                        : "bg-indigo-100/60 border-l-2 border-indigo-600 text-indigo-800 font-medium shadow-sm")
+                                    : (editorTheme === "vs-dark" ? "hover:bg-slate-800/30 text-slate-400 hover:text-slate-200" : "hover:bg-slate-200/50 text-slate-600 hover:text-slate-900")
+                                }`}
+                              >
+                                <div className="flex items-center gap-2 w-full">
+                                  {getFileIcon(file.name)}
+                                  <span className="font-mono truncate select-none font-medium">{file.name}</span>
+                                </div>
+                                <span className={`text-[9px] font-mono pl-6 truncate w-full ${editorTheme === "vs-dark" ? "text-slate-500" : "text-slate-400"}`}>
+                                  {file.path}
+                                </span>
+                              </button>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  )}
+                </div>
+
                 {/* Root Directory */}
                 <div>
                   <button
