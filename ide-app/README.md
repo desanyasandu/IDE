@@ -1,4 +1,4 @@
-# Cod Code IDE – VS Code Clone with AI Chatbot
+# COD CODE – VS Code Clone with AI Chatbot
 
 A high-fidelity, interactive, and premium developer workspace interface styled with Tailwind CSS v4. The application features collapsible layouts, a functional file explorer, tabs coordination, a fully editable Monaco Editor instance, and an AI Chat panel with real-time status transitions.
 
