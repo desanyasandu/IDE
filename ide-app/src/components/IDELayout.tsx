@@ -258,11 +258,8 @@ export default function IDELayout() {
     const list = saved ? JSON.parse(saved) : ["my-room"];
     
     const initialId = (invitedRoom && list.includes(invitedRoom)) ? invitedRoom : "my-room";
-    
-    if (!list.includes(initialId)) {
-      list.push(initialId);
-      localStorage.setItem('cod-ide-rooms-history', JSON.stringify(list));
-    }
+    const uniqueList = Array.from(new Set([...list, initialId])).filter(Boolean);
+    localStorage.setItem('cod-ide-rooms-history', JSON.stringify(uniqueList));
     
     // Track roles for each room in localStorage
     const savedRoles = localStorage.getItem('cod-ide-room-roles') || '{}';
@@ -272,8 +269,14 @@ export default function IDELayout() {
       rolesMap[initialId] = roleParam;
       localStorage.setItem('cod-ide-room-roles', JSON.stringify(rolesMap));
     }
-    return list;
+    return uniqueList;
   });
+
+  const updateRoomsHistory = (newHistory: string[]) => {
+    const uniqueList = Array.from(new Set(newHistory)).filter(Boolean);
+    setRoomsHistory(uniqueList);
+    localStorage.setItem('cod-ide-rooms-history', JSON.stringify(uniqueList));
+  };
 
   const [invitation, setInvitation] = useState<{ room: string; role: string } | null>(null);
 
@@ -297,11 +300,7 @@ export default function IDELayout() {
     // Add to history
     const saved = localStorage.getItem('cod-ide-rooms-history');
     const historyList = saved ? JSON.parse(saved) : ["my-room"];
-    if (!historyList.includes(room)) {
-      const updatedHistory = [...historyList, room];
-      setRoomsHistory(updatedHistory);
-      localStorage.setItem('cod-ide-rooms-history', JSON.stringify(updatedHistory));
-    }
+    updateRoomsHistory([...historyList, room]);
 
     // Set roles map
     const savedRoles = localStorage.getItem('cod-ide-room-roles') || '{}';
@@ -351,12 +350,7 @@ export default function IDELayout() {
     rolesMap[newRoomId] = 'owner';
     localStorage.setItem('cod-ide-room-roles', JSON.stringify(rolesMap));
 
-    const updatedHistory = [...roomsHistory];
-    if (!updatedHistory.includes(newRoomId)) {
-      updatedHistory.push(newRoomId);
-      setRoomsHistory(updatedHistory);
-      localStorage.setItem('cod-ide-rooms-history', JSON.stringify(updatedHistory));
-    }
+    updateRoomsHistory([...roomsHistory, newRoomId]);
 
     if (ydocRef.current) {
       ydocRef.current.getMap('rooms-sync').set('event', JSON.stringify({
@@ -422,8 +416,7 @@ export default function IDELayout() {
 
     // Update rooms history list
     const updatedHistory = roomsHistory.map(r => r === oldRoomId ? sanitizedNewRoomId : r);
-    setRoomsHistory(updatedHistory);
-    localStorage.setItem('cod-ide-rooms-history', JSON.stringify(updatedHistory));
+    updateRoomsHistory(updatedHistory);
 
     // Update room roles
     const savedRoles = localStorage.getItem('cod-ide-room-roles') || '{}';
@@ -717,23 +710,14 @@ export default function IDELayout() {
         if (!parsed || !parsed.newRoomId) return;
 
         if (parsed.type === 'create') {
-          setRoomsHistory(prev => {
-            if (prev.includes(parsed.newRoomId)) return prev;
-            const next = [...prev, parsed.newRoomId];
-            localStorage.setItem('cod-ide-rooms-history', JSON.stringify(next));
-            return next;
-          });
+          updateRoomsHistory([...roomsHistory, parsed.newRoomId]);
         } else if (parsed.type === 'rename') {
           const oldId = parsed.oldRoomId;
           const newId = parsed.newRoomId;
 
           // Update local history
-          setRoomsHistory(prev => {
-            const next = prev.map(r => r === oldId ? newId : r);
-            if (!next.includes(newId)) next.push(newId);
-            localStorage.setItem('cod-ide-rooms-history', JSON.stringify(next));
-            return next;
-          });
+          const nextHistory = roomsHistory.map(r => r === oldId ? newId : r);
+          updateRoomsHistory([...nextHistory, newId]);
 
           // Update roles map in localStorage
           const savedRoles = localStorage.getItem('cod-ide-room-roles') || '{}';
