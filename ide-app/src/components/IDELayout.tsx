@@ -358,7 +358,17 @@ export default function IDELayout() {
       localStorage.setItem('cod-ide-rooms-history', JSON.stringify(updatedHistory));
     }
 
-    handleSwitchRoom(newRoomId);
+    if (ydocRef.current) {
+      ydocRef.current.getMap('rooms-sync').set('event', JSON.stringify({
+        type: 'create',
+        newRoomId: newRoomId,
+        timestamp: Date.now()
+      }));
+    }
+
+    setTimeout(() => {
+      handleSwitchRoom(newRoomId);
+    }, 200);
   };
 
   const handleRenameRoom = async (oldRoomId: string) => {
@@ -401,6 +411,15 @@ export default function IDELayout() {
       console.warn("Could not copy files to renamed room automatically:", err);
     }
 
+    if (ydocRef.current) {
+      ydocRef.current.getMap('rooms-sync').set('event', JSON.stringify({
+        type: 'rename',
+        oldRoomId: oldRoomId,
+        newRoomId: sanitizedNewRoomId,
+        timestamp: Date.now()
+      }));
+    }
+
     // Update rooms history list
     const updatedHistory = roomsHistory.map(r => r === oldRoomId ? sanitizedNewRoomId : r);
     setRoomsHistory(updatedHistory);
@@ -416,7 +435,9 @@ export default function IDELayout() {
 
     // If it was the active room, switch to it
     if (oldRoomId === workspaceId) {
-      handleSwitchRoom(sanitizedNewRoomId);
+      setTimeout(() => {
+        handleSwitchRoom(sanitizedNewRoomId);
+      }, 200);
     }
   };
 
@@ -683,6 +704,57 @@ export default function IDELayout() {
     };
     filesMetadataMap.observe(handleFilesMetadataObserve);
 
+    const roomsSyncMap = doc.getMap('rooms-sync');
+    const handleRoomsSyncObserve = () => {
+      try {
+        const rawEvent = roomsSyncMap.get('event') as string;
+        if (!rawEvent) return;
+        const parsed = JSON.parse(rawEvent);
+        if (!parsed || !parsed.newRoomId) return;
+
+        if (parsed.type === 'create') {
+          setRoomsHistory(prev => {
+            if (prev.includes(parsed.newRoomId)) return prev;
+            const next = [...prev, parsed.newRoomId];
+            localStorage.setItem('cod-ide-rooms-history', JSON.stringify(next));
+            return next;
+          });
+        } else if (parsed.type === 'rename') {
+          const oldId = parsed.oldRoomId;
+          const newId = parsed.newRoomId;
+
+          // Update local history
+          setRoomsHistory(prev => {
+            const next = prev.map(r => r === oldId ? newId : r);
+            if (!next.includes(newId)) next.push(newId);
+            localStorage.setItem('cod-ide-rooms-history', JSON.stringify(next));
+            return next;
+          });
+
+          // Update roles map in localStorage
+          const savedRoles = localStorage.getItem('cod-ide-room-roles') || '{}';
+          const rolesMap = JSON.parse(savedRoles);
+          const role = rolesMap[oldId] || 'editor';
+          delete rolesMap[oldId];
+          rolesMap[newId] = role;
+          localStorage.setItem('cod-ide-room-roles', JSON.stringify(rolesMap));
+
+          // If currently in the renamed room, redirect automatically!
+          if (workspaceId === oldId) {
+            setWorkspaceId(newId);
+            const url = new URL(window.location.href);
+            url.searchParams.set('room', newId);
+            url.searchParams.set('role', role);
+            window.history.pushState(null, '', url.toString());
+            setUserRole(role as any);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to sync room event:", err);
+      }
+    };
+    roomsSyncMap.observe(handleRoomsSyncObserve);
+
     setProviderReady(true);
 
     provider.on('status', (event: any) => {
@@ -693,6 +765,7 @@ export default function IDELayout() {
       setProviderReady(false);
       provider.awareness.off('change', handleAwarenessUpdate);
       filesMetadataMap.unobserve(handleFilesMetadataObserve);
+      roomsSyncMap.unobserve(handleRoomsSyncObserve);
       provider.destroy();
       doc.destroy();
       ydocRef.current = null;
@@ -2153,14 +2226,6 @@ export default function IDELayout() {
           >
             <Sparkles className="w-4 h-4" />
           </button>
-
-          <button
-            onClick={handleRunCode}
-            className="flex items-center gap-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white px-3 py-1.5 rounded-lg text-xs hover-scale cursor-pointer font-semibold shadow-md shadow-emerald-950/20"
-          >
-            <Play className="w-3.5 h-3.5 fill-white" />
-            <span>Run App</span>
-          </button>
         </div>
       </header>
 
@@ -3402,7 +3467,7 @@ export default function IDELayout() {
               {activeBottomTab === "output" && (
                 <div className={`whitespace-pre-wrap ${editorTheme === "vs-dark" ? "text-slate-300" : "text-slate-700"}`}>
                   {outputLogs.length === 0 ? (
-                    <span className="text-slate-500 italic select-none">No build logs. Click 'Run App' in the top bar to run compilation...</span>
+                    <span className="text-slate-500 italic select-none">No build logs. Run compilation using the terminal...</span>
                   ) : (
                     outputLogs.map((log, idx) => {
                       if (!log) return null;
