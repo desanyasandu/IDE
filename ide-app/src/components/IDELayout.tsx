@@ -607,6 +607,10 @@ export default function IDELayout() {
   const [aiTemperature, setAiTemperature] = useState<number>(0.7);
   const [aiSystemPrompt, setAiSystemPrompt] = useState<string>("You are an elite developer assistant. Write clean, comments-documented, modern code.");
 
+  // Exit/Goodbye Screen States
+  const [isExiting, setIsExiting] = useState(false);
+  const [sessionEnded, setSessionEnded] = useState(false);
+
   // Sync theme with body class
   useEffect(() => {
     if (editorTheme === "vs-dark") {
@@ -872,6 +876,54 @@ export default function IDELayout() {
     // Hide the call panel
     setIsCallActive(false);
     setIsCallPanelOpen(false);
+  };
+
+  const playExitSound = () => {
+    try {
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioContextClass) return;
+      const ctx = new AudioContextClass();
+      const now = ctx.currentTime;
+      
+      const osc1 = ctx.createOscillator();
+      const gain1 = ctx.createGain();
+      osc1.type = "sine";
+      osc1.frequency.setValueAtTime(523.25, now);
+      osc1.frequency.exponentialRampToValueAtTime(261.63, now + 0.15);
+      osc1.frequency.exponentialRampToValueAtTime(130.81, now + 0.4);
+      gain1.gain.setValueAtTime(0.3, now);
+      gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+      osc1.connect(gain1);
+      gain1.connect(ctx.destination);
+      
+      const osc2 = ctx.createOscillator();
+      const gain2 = ctx.createGain();
+      osc2.type = "triangle";
+      osc2.frequency.setValueAtTime(261.63, now);
+      osc2.frequency.exponentialRampToValueAtTime(130.81, now + 0.2);
+      osc2.frequency.exponentialRampToValueAtTime(65.41, now + 0.5);
+      gain2.gain.setValueAtTime(0.15, now);
+      gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+      osc2.connect(gain2);
+      gain2.connect(ctx.destination);
+      
+      osc1.start(now);
+      osc1.stop(now + 0.5);
+      osc2.start(now);
+      osc2.stop(now + 0.55);
+    } catch (e) {
+      console.warn("Failed to play exit sound:", e);
+    }
+  };
+
+  const handleExitCallWithAnimation = () => {
+    playExitSound();
+    setIsExiting(true);
+    setTimeout(() => {
+      disconnectCall();
+      setSessionEnded(true);
+      setIsExiting(false);
+    }, 700);
   };
 
   // ── Toggle screenshare popup out of panel ────────────────────────────────────
@@ -2070,11 +2122,11 @@ export default function IDELayout() {
   return (
     <div
       data-testid="ide-container"
-      className={`flex flex-col w-full h-full select-none overflow-hidden font-sans gpu-layer transition-colors duration-250 ${
+      className={`flex flex-col w-full h-full select-none overflow-hidden font-sans gpu-layer transition-all duration-700 ease-in-out transform ${
         editorTheme === "vs-dark"
           ? "bg-[#121215] text-slate-200"
           : "bg-[#f3f4f6] text-slate-800"
-      }`}
+      } ${isExiting ? "scale-[0.93] rotate-1 opacity-0 filter blur-md pointer-events-none" : "scale-100 rotate-0 opacity-100"}`}
     >
       {/* Top Header / Title Bar */}
       <header className={`h-11 flex items-center justify-between px-4 text-xs font-medium z-30 border-b transition-colors duration-250 ${
@@ -3701,7 +3753,7 @@ export default function IDELayout() {
                   <MonitorUp className="w-4.5 h-4.5" />
                 </button>
                 <button
-                  onClick={disconnectCall}
+                  onClick={handleExitCallWithAnimation}
                   className="p-2.5 rounded-full bg-red-600 hover:bg-red-500 text-white shadow-lg shadow-red-900/40 transition-colors cursor-pointer"
                   title="Disconnect"
                 >
@@ -4667,6 +4719,74 @@ export default function IDELayout() {
               >
                 <Check className="w-4 h-4" />
                 Join Workspace
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Session Ended Screen */}
+      {sessionEnded && (
+        <div className={`fixed inset-0 z-[150] flex flex-col items-center justify-center p-6 transition-colors duration-500 ${
+          editorTheme === "vs-dark" ? "bg-[#0d0d11]" : "bg-slate-50"
+        }`}>
+          {/* Background radial glow */}
+          <div className="absolute inset-0 overflow-hidden pointer-events-none">
+            <div className="absolute -top-[30%] -left-[20%] w-[70%] h-[70%] rounded-full bg-indigo-500/10 blur-[120px]" />
+            <div className="absolute -bottom-[30%] -right-[20%] w-[70%] h-[70%] rounded-full bg-purple-500/10 blur-[120px]" />
+          </div>
+
+          <div className={`w-full max-w-[500px] p-8 rounded-3xl border text-center shadow-2xl flex flex-col gap-6 backdrop-blur-md transition-all duration-500 transform scale-100 ${
+            editorTheme === "vs-dark"
+              ? "bg-[#15151c]/80 border-slate-800/80 text-slate-300"
+              : "bg-white/90 border-slate-200 text-slate-700 shadow-slate-200/50"
+          }`}>
+            <div className="mx-auto w-20 h-20 rounded-full bg-red-500/10 border border-red-500/30 flex items-center justify-center text-red-500 mb-2 animate-pulse">
+              <PhoneOff className="w-9 h-9" />
+            </div>
+
+            <h1 className={`text-2xl font-bold tracking-tight transition-colors duration-250 ${
+              editorTheme === "vs-dark" ? "text-white" : "text-slate-800"
+        }`}>
+              Session Ended Successfully
+            </h1>
+
+            <p className="text-sm text-slate-500 leading-relaxed">
+              You have disconnected from the workspace call. The active collaborative editing session has been closed on your end.
+            </p>
+
+            <div className={`py-3 px-4 rounded-2xl font-mono text-xs border transition-colors ${
+              editorTheme === "vs-dark" 
+                ? "bg-slate-900/50 border-slate-800 text-indigo-400" 
+                : "bg-slate-50 border-slate-150 text-indigo-600"
+            }`}>
+              Workspace: <span className="font-bold">{workspaceId}</span>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-3 justify-center mt-2">
+              <button
+                onClick={() => {
+                  setSessionEnded(false);
+                  setIsCallActive(true);
+                  setIsCallPanelOpen(true);
+                }}
+                className="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-3 rounded-2xl text-sm font-semibold transition-all shadow-md shadow-indigo-900/30 hover:shadow-[0_0_15px_rgba(99,102,241,0.4)] cursor-pointer flex items-center justify-center gap-1.5"
+              >
+                <PhoneOff className="w-4 h-4 rotate-[135deg]" />
+                Reconnect to Call
+              </button>
+              <button
+                onClick={() => {
+                  setSessionEnded(false);
+                  handleSwitchRoom("my-room");
+                }}
+                className={`px-6 py-3 rounded-2xl text-sm font-semibold transition-all border cursor-pointer ${
+                  editorTheme === "vs-dark"
+                    ? "border-slate-800 hover:bg-slate-800 text-slate-400 hover:text-white"
+                    : "border-slate-200 bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                Go to Personal Workspace
               </button>
             </div>
           </div>
