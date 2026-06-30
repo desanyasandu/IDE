@@ -225,10 +225,16 @@ export default function IDELayout() {
   const [workspaceId, setWorkspaceId] = useState<string>(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const invitedRoom = urlParams.get('room');
+    const passcode = urlParams.get('passcode');
     const saved = localStorage.getItem('cod-ide-rooms-history');
     const historyList = saved ? JSON.parse(saved) : ["my-room"];
     
     if (invitedRoom && historyList.includes(invitedRoom)) {
+      if (passcode) {
+        const passcodes = JSON.parse(localStorage.getItem('cod-ide-room-passcodes') || '{}');
+        passcodes[invitedRoom] = passcode;
+        localStorage.setItem('cod-ide-room-passcodes', JSON.stringify(passcodes));
+      }
       return invitedRoom;
     }
     return "my-room";
@@ -278,24 +284,32 @@ export default function IDELayout() {
     localStorage.setItem('cod-ide-rooms-history', JSON.stringify(uniqueList));
   };
 
-  const [invitation, setInvitation] = useState<{ room: string; role: string } | null>(null);
+  const [invitation, setInvitation] = useState<{ room: string; role: string; passcode?: string } | null>(null);
 
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const invitedRoom = urlParams.get('room');
     const invitedRole = urlParams.get('role')?.toLowerCase() || "editor";
+    const invitedPasscode = urlParams.get('passcode') || "";
     
     const saved = localStorage.getItem('cod-ide-rooms-history');
     const historyList = saved ? JSON.parse(saved) : ["my-room"];
     
     if (invitedRoom && !historyList.includes(invitedRoom)) {
-      setInvitation({ room: invitedRoom, role: invitedRole });
+      setInvitation({ room: invitedRoom, role: invitedRole, passcode: invitedPasscode });
     }
   }, []);
 
   const handleAcceptInvitation = () => {
     if (!invitation) return;
-    const { room, role } = invitation;
+    const { room, role, passcode } = invitation;
+
+    // Save passcode if present
+    if (passcode) {
+      const passcodes = JSON.parse(localStorage.getItem('cod-ide-room-passcodes') || '{}');
+      passcodes[room] = passcode;
+      localStorage.setItem('cod-ide-room-passcodes', JSON.stringify(passcodes));
+    }
 
     // Add to history
     const saved = localStorage.getItem('cod-ide-rooms-history');
@@ -321,6 +335,7 @@ export default function IDELayout() {
     const url = new URL(window.location.href);
     url.searchParams.delete('room');
     url.searchParams.delete('role');
+    url.searchParams.delete('passcode');
     window.history.pushState(null, '', url.toString());
   };
 
@@ -331,19 +346,59 @@ export default function IDELayout() {
     const rolesMap = JSON.parse(savedRoles);
     const role = rolesMap[roomId] || 'owner';
     
+    const passcodes = JSON.parse(localStorage.getItem('cod-ide-room-passcodes') || '{}');
+    const passcode = passcodes[roomId] || "";
+
     const url = new URL(window.location.href);
     url.searchParams.set('room', roomId);
     url.searchParams.set('role', role);
+    if (passcode) {
+      url.searchParams.set('passcode', passcode);
+    } else {
+      url.searchParams.delete('passcode');
+    }
     window.history.pushState(null, '', url.toString());
 
     setUserRole(role as any);
   };
 
-  const handleCreateNewRoom = () => {
+  const handleCreateNewRoom = async () => {
     const defaultRoomId = `room-${Math.random().toString(36).substring(2, 9)}`;
     const roomNameInput = window.prompt("Enter a name for the new workspace room:", defaultRoomId);
     if (roomNameInput === null) return; // User cancelled
     const newRoomId = roomNameInput.trim().replace(/[^a-zA-Z0-9-_]/g, '-') || defaultRoomId;
+
+    const isPrivate = window.confirm("Would you like to make this room PRIVATE? (Only users with the passcode link will be able to access. Click Cancel for Public.)");
+    
+    // Call backend API to create workspace room (saving in MongoDB)
+    let passcode = "";
+    try {
+      const response = await fetch(`${BACKEND_API_URL}/workspace`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          workspace_id: newRoomId,
+          name: roomNameInput.trim() || newRoomId,
+          type: isPrivate ? "private" : "public"
+        })
+      });
+      if (response.ok) {
+        const workspaceData = await response.json();
+        passcode = workspaceData.passcode || "";
+      }
+    } catch (err) {
+      console.warn("Could not create workspace room in backend database:", err);
+      // Fallback local passcode generation
+      if (isPrivate) {
+        passcode = 'sec-' + Math.random().toString(36).substring(2, 10);
+      }
+    }
+
+    if (passcode) {
+      const passcodes = JSON.parse(localStorage.getItem('cod-ide-room-passcodes') || '{}');
+      passcodes[newRoomId] = passcode;
+      localStorage.setItem('cod-ide-room-passcodes', JSON.stringify(passcodes));
+    }
 
     const savedRoles = localStorage.getItem('cod-ide-room-roles') || '{}';
     const rolesMap = JSON.parse(savedRoles);
@@ -473,7 +528,12 @@ export default function IDELayout() {
   // Bug 7 fix: Wrap fetchWorkspaceFiles in useCallback to avoid stale closures
   const fetchWorkspaceFiles = useCallback(async () => {
     try {
-      const response = await fetch(`${BACKEND_API_URL}/workspace/${workspaceId}/files`, {
+      const passcodes = JSON.parse(localStorage.getItem('cod-ide-room-passcodes') || '{}');
+      const passcode = passcodes[workspaceId] || new URLSearchParams(window.location.search).get('passcode') || "";
+      const url = new URL(`${BACKEND_API_URL}/workspace/${workspaceId}/files`);
+      if (passcode) url.searchParams.set('passcode', passcode);
+
+      const response = await fetch(url.toString(), {
         headers: {
           "ngrok-skip-browser-warning": "true"
         }
@@ -652,9 +712,11 @@ export default function IDELayout() {
     ydocRef.current = doc;
 
     // Connect to Yjs websocket backend using WSS for the entire workspace (global room)
+    const passcodes = JSON.parse(localStorage.getItem('cod-ide-room-passcodes') || '{}');
+    const passcode = passcodes[workspaceId] || new URLSearchParams(window.location.search).get('passcode') || "";
     const provider = new WebsocketProvider(
       'wss://quench-mortified-amaze.ngrok-free.dev/ws',
-      workspaceId,
+      workspaceId + (passcode ? '?passcode=' + passcode : ''),
       doc
     );
     providerRef.current = provider;
@@ -1668,7 +1730,12 @@ export default function IDELayout() {
     };
 
     try {
-      const response = await fetch(`${BACKEND_API_URL}/workspace/${workspaceId}/files`, {
+      const passcodes = JSON.parse(localStorage.getItem('cod-ide-room-passcodes') || '{}');
+      const passcode = passcodes[workspaceId] || new URLSearchParams(window.location.search).get('passcode') || "";
+      const url = new URL(`${BACKEND_API_URL}/workspace/${workspaceId}/files`);
+      if (passcode) url.searchParams.set('passcode', passcode);
+
+      const response = await fetch(url.toString(), {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",
@@ -1728,7 +1795,12 @@ export default function IDELayout() {
     const fileId = file.id || file.name;
 
     try {
-      const response = await fetch(`${BACKEND_API_URL}/workspace/${workspaceId}/files/${fileId}`, {
+      const passcodes = JSON.parse(localStorage.getItem('cod-ide-room-passcodes') || '{}');
+      const passcode = passcodes[workspaceId] || new URLSearchParams(window.location.search).get('passcode') || "";
+      const url = new URL(`${BACKEND_API_URL}/workspace/${workspaceId}/files/${fileId}`);
+      if (passcode) url.searchParams.set('passcode', passcode);
+
+      const response = await fetch(url.toString(), {
         method: "DELETE",
         headers: {
           "ngrok-skip-browser-warning": "true"

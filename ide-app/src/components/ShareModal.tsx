@@ -35,7 +35,12 @@ export default function ShareModal({
 
   const handleCopyLink = () => {
     const roleParam = linkRole.toLowerCase() === "restricted" ? "viewer" : linkRole.toLowerCase();
-    const shareUrl = `${window.location.origin}${window.location.pathname}?room=${workspaceId}&role=${roleParam}`;
+    const passcodes = JSON.parse(localStorage.getItem('cod-ide-room-passcodes') || '{}');
+    const passcode = passcodes[workspaceId] || "";
+    let shareUrl = `${window.location.origin}${window.location.pathname}?room=${workspaceId}&role=${roleParam}`;
+    if (passcode) {
+      shareUrl += `&passcode=${passcode}`;
+    }
     navigator.clipboard.writeText(shareUrl);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
