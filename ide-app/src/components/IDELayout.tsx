@@ -52,7 +52,9 @@ import {
   Circle,
   ExternalLink,
   Maximize2,
-  Minimize2
+  Minimize2,
+  Globe,
+  Edit2
 } from "lucide-react";
 
 interface MockFile {
@@ -266,22 +268,82 @@ export default function IDELayout() {
   };
 
   const handleCreateNewRoom = () => {
-    const newRoomId = `room-${Math.random().toString(36).substring(2, 9)}`;
-    const confirmNew = window.confirm("Are you sure you want to create a new workspace room? (This will open it dynamically without page reload)");
-    if (confirmNew) {
-      const savedRoles = localStorage.getItem('cod-ide-room-roles') || '{}';
-      const rolesMap = JSON.parse(savedRoles);
-      rolesMap[newRoomId] = 'owner';
-      localStorage.setItem('cod-ide-room-roles', JSON.stringify(rolesMap));
+    const defaultRoomId = `room-${Math.random().toString(36).substring(2, 9)}`;
+    const roomNameInput = window.prompt("Enter a name for the new workspace room:", defaultRoomId);
+    if (roomNameInput === null) return; // User cancelled
+    const newRoomId = roomNameInput.trim().replace(/[^a-zA-Z0-9-_]/g, '-') || defaultRoomId;
 
-      const updatedHistory = [...roomsHistory];
-      if (!updatedHistory.includes(newRoomId)) {
-        updatedHistory.push(newRoomId);
-        setRoomsHistory(updatedHistory);
-        localStorage.setItem('cod-ide-rooms-history', JSON.stringify(updatedHistory));
+    const savedRoles = localStorage.getItem('cod-ide-room-roles') || '{}';
+    const rolesMap = JSON.parse(savedRoles);
+    rolesMap[newRoomId] = 'owner';
+    localStorage.setItem('cod-ide-room-roles', JSON.stringify(rolesMap));
+
+    const updatedHistory = [...roomsHistory];
+    if (!updatedHistory.includes(newRoomId)) {
+      updatedHistory.push(newRoomId);
+      setRoomsHistory(updatedHistory);
+      localStorage.setItem('cod-ide-rooms-history', JSON.stringify(updatedHistory));
+    }
+
+    handleSwitchRoom(newRoomId);
+  };
+
+  const handleRenameRoom = async (oldRoomId: string) => {
+    const newRoomName = window.prompt(`Enter new name for room "${oldRoomId}":`, oldRoomId);
+    if (!newRoomName) return;
+    const sanitizedNewRoomId = newRoomName.trim().replace(/[^a-zA-Z0-9-_]/g, '-');
+    if (!sanitizedNewRoomId || sanitizedNewRoomId === oldRoomId) return;
+
+    if (roomsHistory.includes(sanitizedNewRoomId)) {
+      alert("A room with this name already exists in history.");
+      return;
+    }
+
+    // Copy files on backend to the new room ID
+    try {
+      const response = await fetch(`${BACKEND_API_URL}/workspace/${oldRoomId}/files`, {
+        headers: { "ngrok-skip-browser-warning": "true" }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        if (Array.isArray(data) && data.length > 0) {
+          await Promise.all(data.map(async (file: any) => {
+            await fetch(`${BACKEND_API_URL}/workspace/${sanitizedNewRoomId}/files`, {
+              method: "POST",
+              headers: { 
+                "Content-Type": "application/json",
+                "ngrok-skip-browser-warning": "true"
+              },
+              body: JSON.stringify({
+                name: file.name,
+                path: file.path,
+                content: file.content || "",
+                language: file.language || "typescript"
+              })
+            });
+          }));
+        }
       }
+    } catch (err) {
+      console.warn("Could not copy files to renamed room automatically:", err);
+    }
 
-      handleSwitchRoom(newRoomId);
+    // Update rooms history list
+    const updatedHistory = roomsHistory.map(r => r === oldRoomId ? sanitizedNewRoomId : r);
+    setRoomsHistory(updatedHistory);
+    localStorage.setItem('cod-ide-rooms-history', JSON.stringify(updatedHistory));
+
+    // Update room roles
+    const savedRoles = localStorage.getItem('cod-ide-room-roles') || '{}';
+    const rolesMap = JSON.parse(savedRoles);
+    const role = rolesMap[oldRoomId] || 'owner';
+    delete rolesMap[oldRoomId];
+    rolesMap[sanitizedNewRoomId] = role;
+    localStorage.setItem('cod-ide-room-roles', JSON.stringify(rolesMap));
+
+    // If it was the active room, switch to it
+    if (oldRoomId === workspaceId) {
+      handleSwitchRoom(sanitizedNewRoomId);
     }
   };
 
@@ -1531,7 +1593,7 @@ export default function IDELayout() {
       `[${new Date().toLocaleTimeString()}] dist/assets/index-Bf9e42Ac.js     142.18 kB â”‚ gzip: 46.50 kB`,
       `[${new Date().toLocaleTimeString()}] âœ“ built in 580ms`,
       `[${new Date().toLocaleTimeString()}] Launching Tauri application container...`,
-      `[${new Date().toLocaleTimeString()}] Cod Code IDE window successfully mounted (Tauri backend initialized).`,
+      `[${new Date().toLocaleTimeString()}] COD CODE window successfully mounted (Tauri backend initialized).`,
       `[${new Date().toLocaleTimeString()}] Application is running at http://localhost:1420/`
     ];
 
@@ -1814,10 +1876,10 @@ export default function IDELayout() {
       { label: "New Terminal", shortcut: "Ctrl+Shift+`", action: () => { setBottomPanelOpen(true); setActiveBottomTab("terminal"); } }
     ],
     Help: [
-      { label: "Welcome", action: () => alert("Welcome to Cod Code IDE!") },
+      { label: "Welcome", action: () => alert("Welcome to COD CODE!") },
       { label: "Keyboard Shortcuts", shortcut: "Ctrl+K Ctrl+S", action: () => { editorRef.current?.focus(); editorRef.current?.trigger('source', 'editor.action.showCommands', null); } },
       { divider: true },
-      { label: "About", action: () => alert("Cod Code IDE v0.1.0") }
+      { label: "About", action: () => alert("COD CODE v0.1.0") }
     ]
   };
 
@@ -1854,7 +1916,7 @@ export default function IDELayout() {
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-1.5 ml-2">
             <Terminal className="w-3.5 h-3.5 text-indigo-400" />
-            <span className={`font-semibold tracking-wide font-mono transition-colors duration-250 ${editorTheme === "vs-dark" ? "text-slate-300" : "text-slate-700"}`}>COD Code IDE</span>
+            <span className={`font-semibold tracking-wide font-mono transition-colors duration-250 ${editorTheme === "vs-dark" ? "text-slate-300" : "text-slate-700"}`}>COD CODE</span>
           </div>
 
           {/* Main Menu Bar */}
@@ -2804,6 +2866,16 @@ export default function IDELayout() {
 
                         {/* Actions (like delete from history) */}
                         <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-all duration-200">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleRenameRoom(roomId);
+                            }}
+                            className={`p-1 rounded hover:bg-indigo-500/10 text-slate-500 hover:text-indigo-400 transition-colors`}
+                            title="Rename room"
+                          >
+                            <Edit2 className="w-3 h-3" />
+                          </button>
                           {roomId !== "my-room" && (
                             <button
                               onClick={(e) => {
@@ -3855,7 +3927,7 @@ export default function IDELayout() {
             }`}>
               <div className="flex items-center gap-2">
                 <Settings className={`w-5 h-5 ${editorTheme === "vs-dark" ? "text-indigo-400" : "text-indigo-600"}`} />
-                <span className="font-bold text-sm tracking-wide">COD Code IDE User Settings</span>
+                <span className="font-bold text-sm tracking-wide">COD CODE User Settings</span>
               </div>
               <button
                 onClick={() => setShowSettings(false)}

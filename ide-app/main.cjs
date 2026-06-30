@@ -9,7 +9,7 @@ function createWindow() {
       nodeIntegration: false,
       contextIsolation: true,
     },
-    title: "Cod Code IDE",
+    title: "COD CODE",
     backgroundColor: "#121215",
     autoHideMenuBar: true
   });
