@@ -527,7 +527,7 @@ export default function IDELayout() {
     localFileHandlesRef.current.clear();
   }, [workspaceId]);
 
-  const BACKEND_API_URL = "https://quench-mortified-amaze.ngrok-free.dev";
+  const BACKEND_API_URL = "https://untamed-art-briskly.ngrok-free.dev";
 
   const uploadFile = async (filePath: string, fileData: MockFile) => {
     const payload = {
