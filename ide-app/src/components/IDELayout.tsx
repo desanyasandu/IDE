@@ -529,6 +529,34 @@ export default function IDELayout() {
 
   const BACKEND_API_URL = "https://quench-mortified-amaze.ngrok-free.dev";
 
+  const uploadFile = async (filePath: string, fileData: MockFile) => {
+    const payload = {
+      name: fileData.name,
+      path: filePath,
+      content: fileData.content,
+      language: fileData.language
+    };
+    try {
+      const passcodes = JSON.parse(localStorage.getItem('cod-ide-room-passcodes') || '{}');
+      const passcode = passcodes[workspaceId] || new URLSearchParams(window.location.search).get('passcode') || "";
+      const url = new URL(`${BACKEND_API_URL}/workspace/${workspaceId}/files`);
+      if (passcode) url.searchParams.set('passcode', passcode);
+
+      const response = await fetch(url.toString(), {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          "ngrok-skip-browser-warning": "true"
+        },
+        body: JSON.stringify(payload)
+      });
+      return response.ok;
+    } catch (e) {
+      console.error("Failed to upload file:", filePath, e);
+      return false;
+    }
+  };
+
   // Local project states
   const [isLocalProject, setIsLocalProject] = useState<boolean>(false);
   const [localDirName, setLocalDirName] = useState<string>("");
@@ -625,6 +653,17 @@ export default function IDELayout() {
       await readDirectory(dirHandle);
       
       setFiles(loadedFiles);
+
+      // Upload files to the collaborative workspace backend
+      const uploadPromises = Object.entries(loadedFiles).map(([path, fileData]) => 
+        uploadFile(path, fileData)
+      );
+      await Promise.all(uploadPromises);
+
+      // Notify other clients via Yjs
+      if (ydocRef.current) {
+        ydocRef.current.getMap('files-metadata').set('lastUpdated', Date.now().toString());
+      }
       
       const filePaths = Object.keys(loadedFiles);
       if (filePaths.length > 0) {
@@ -636,7 +675,7 @@ export default function IDELayout() {
         setOpenTabs([]);
       }
       
-      alert(`Successfully opened local project: ${dirHandle.name}`);
+      alert(`Successfully opened local project: ${dirHandle.name} and shared with collaborators`);
     } catch (err: any) {
       if (err.name !== 'AbortError') {
         console.error("Error opening directory:", err);
@@ -670,19 +709,28 @@ export default function IDELayout() {
       localFileHandlesRef.current.set(filePath, fileHandle);
       setIsLocalProject(true);
       
+      const fileData = {
+        id: filePath,
+        name: file.name,
+        path: filePath,
+        language: language,
+        content: textContent
+      };
+
       setFiles(prev => ({
         ...prev,
-        [filePath]: {
-          id: filePath,
-          name: file.name,
-          path: filePath,
-          language: language,
-          content: textContent
-        }
+        [filePath]: fileData
       }));
       
+      await uploadFile(filePath, fileData);
+
+      // Notify other clients via Yjs
+      if (ydocRef.current) {
+        ydocRef.current.getMap('files-metadata').set('lastUpdated', Date.now().toString());
+      }
+      
       handleOpenFile(filePath);
-      alert(`Opened file: ${file.name}`);
+      alert(`Opened and shared file: ${file.name}`);
     } catch (err: any) {
       if (err.name !== 'AbortError') {
         console.error("Error opening file:", err);
@@ -757,7 +805,6 @@ export default function IDELayout() {
 
   // Bug 7 fix: Wrap fetchWorkspaceFiles in useCallback to avoid stale closures
   const fetchWorkspaceFiles = useCallback(async () => {
-    if (isLocalProject) return;
     try {
       const passcodes = JSON.parse(localStorage.getItem('cod-ide-room-passcodes') || '{}');
       const passcode = passcodes[workspaceId] || new URLSearchParams(window.location.search).get('passcode') || "";
@@ -774,6 +821,14 @@ export default function IDELayout() {
         if (Array.isArray(data) && data.length > 0) {
           const filesMap: Record<string, MockFile> = {};
           setFiles(prev => {
+            // First keep all existing local files (to prevent losing them if upload is still in progress or failed)
+            if (isLocalProject) {
+              Object.keys(prev).forEach(key => {
+                if (localFileHandlesRef.current.has(key)) {
+                  filesMap[key] = prev[key];
+                }
+              });
+            }
             data.forEach((file: any) => {
               const filePath = file.path || file.name || `src/${file.id || file.name}`;
               // Prevent overwriting the active file's content with old backend data while editing
@@ -808,20 +863,17 @@ export default function IDELayout() {
 
   // Fetch workspace files from backend on component mount
   useEffect(() => {
-    if (!isLocalProject) {
-      fetchWorkspaceFiles();
-    }
-  }, [fetchWorkspaceFiles, isLocalProject]);
+    fetchWorkspaceFiles();
+  }, [fetchWorkspaceFiles]);
 
   // Fallback Polling: Fetch workspace files list every 5 seconds to ensure sync
   // even if WebSocket connection is blocked by ngrok
   useEffect(() => {
-    if (isLocalProject) return;
     const interval = setInterval(() => {
       fetchWorkspaceFiles();
     }, 5000);
     return () => clearInterval(interval);
-  }, [workspaceId, fetchWorkspaceFiles, isLocalProject]);
+  }, [workspaceId, fetchWorkspaceFiles]);
 
   // Editor states
   const [editorTheme, setEditorTheme] = useState<"vs-dark" | "light">("vs-dark");
@@ -1137,7 +1189,7 @@ export default function IDELayout() {
 
   // 2. Monaco binding per file
   useEffect(() => {
-    if (isLocalProject || !providerReady || !editorInstance || !ydocRef.current || !providerRef.current) return;
+    if (!providerReady || !editorInstance || !ydocRef.current || !providerRef.current) return;
 
     const doc = ydocRef.current;
     const provider = providerRef.current;
@@ -1170,7 +1222,7 @@ export default function IDELayout() {
         bindingRef.current = null;
       }
     };
-  }, [activeFilePath, editorInstance, providerReady, isLocalProject]);
+  }, [activeFilePath, editorInstance, providerReady]);
 
   // Call settings state
   const [isMuted, setIsMuted] = useState(false);
@@ -2061,16 +2113,26 @@ export default function IDELayout() {
         await writable.write(initialContent);
         await writable.close();
         
+        const fileData = {
+          id: filename,
+          name: fileName,
+          path: filename,
+          language: language,
+          content: initialContent
+        };
+
         setFiles(prev => ({
           ...prev,
-          [filename]: {
-            id: filename,
-            name: fileName,
-            path: filename,
-            language: language,
-            content: initialContent
-          }
+          [filename]: fileData
         }));
+
+        await uploadFile(filename, fileData);
+
+        // Notify other clients via Yjs
+        if (ydocRef.current) {
+          ydocRef.current.getMap('files-metadata').set('lastUpdated', Date.now().toString());
+        }
+
         handleOpenFile(filename);
       } catch (err: any) {
         console.error("Failed to create local file:", err);
@@ -2179,6 +2241,27 @@ export default function IDELayout() {
           return updated;
         });
         handleCloseTab(null as any, path);
+
+        // Delete from backend as well so collaborators are updated
+        try {
+          const fileId = file.id || file.name || path;
+          const passcodes = JSON.parse(localStorage.getItem('cod-ide-room-passcodes') || '{}');
+          const passcode = passcodes[workspaceId] || new URLSearchParams(window.location.search).get('passcode') || "";
+          const url = new URL(`${BACKEND_API_URL}/workspace/${workspaceId}/files/${fileId}`);
+          if (passcode) url.searchParams.set('passcode', passcode);
+
+          const response = await fetch(url.toString(), {
+            method: "DELETE",
+            headers: {
+              "ngrok-skip-browser-warning": "true"
+            }
+          });
+          if (response.ok && ydocRef.current) {
+            ydocRef.current.getMap('files-metadata').set('lastUpdated', Date.now().toString());
+          }
+        } catch (backendErr) {
+          console.error("Failed to delete local file from backend:", backendErr);
+        }
       } catch (err: any) {
         console.error("Failed to delete local file:", err);
         alert(`Failed to delete file: ${err.message}`);
