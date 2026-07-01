@@ -814,7 +814,8 @@ export default function IDELayout() {
       const response = await fetch(url.toString(), {
         headers: {
           "ngrok-skip-browser-warning": "true"
-        }
+        },
+        cache: 'no-store'
       });
       if (response.ok) {
         const data = await response.json();
@@ -2245,9 +2246,10 @@ export default function IDELayout() {
         // Delete from backend as well so collaborators are updated
         try {
           const fileId = file.id || file.name || path;
+          const encodedFileId = fileId.split('/').map(encodeURIComponent).join('/');
           const passcodes = JSON.parse(localStorage.getItem('cod-ide-room-passcodes') || '{}');
           const passcode = passcodes[workspaceId] || new URLSearchParams(window.location.search).get('passcode') || "";
-          const url = new URL(`${BACKEND_API_URL}/workspace/${workspaceId}/files/${fileId}`);
+          const url = new URL(`${BACKEND_API_URL}/workspace/${workspaceId}/files/${encodedFileId}`);
           if (passcode) url.searchParams.set('passcode', passcode);
 
           const response = await fetch(url.toString(), {
@@ -2258,6 +2260,10 @@ export default function IDELayout() {
           });
           if (response.ok && ydocRef.current) {
             ydocRef.current.getMap('files-metadata').set('lastUpdated', Date.now().toString());
+          } else if (!response.ok) {
+            const errText = await response.text();
+            console.error("Failed to delete local file from backend:", errText);
+            alert(`Failed to delete file from backend: ${errText}`);
           }
         } catch (backendErr) {
           console.error("Failed to delete local file from backend:", backendErr);
@@ -2269,12 +2275,13 @@ export default function IDELayout() {
       return;
     }
 
-    const fileId = file.id || file.name;
+    const fileId = file.id || file.name || path;
 
     try {
       const passcodes = JSON.parse(localStorage.getItem('cod-ide-room-passcodes') || '{}');
       const passcode = passcodes[workspaceId] || new URLSearchParams(window.location.search).get('passcode') || "";
-      const url = new URL(`${BACKEND_API_URL}/workspace/${workspaceId}/files/${fileId}`);
+      const encodedFileId = fileId.split('/').map(encodeURIComponent).join('/');
+      const url = new URL(`${BACKEND_API_URL}/workspace/${workspaceId}/files/${encodedFileId}`);
       if (passcode) url.searchParams.set('passcode', passcode);
 
       const response = await fetch(url.toString(), {
@@ -2300,6 +2307,10 @@ export default function IDELayout() {
         if (ydocRef.current) {
           ydocRef.current.getMap('files-metadata').set('lastUpdated', Date.now().toString());
         }
+      } else {
+        const errText = await response.text();
+        console.error("Failed to delete file on backend:", errText);
+        alert(`Failed to delete file: ${errText}`);
       }
     } catch (err) {
       console.error("Error deleting file on backend:", err);
