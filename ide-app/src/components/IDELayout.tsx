@@ -54,6 +54,7 @@ import {
   Maximize2,
   Minimize2,
   Globe,
+  Lock,
   Edit2,
   History
 } from "lucide-react";
@@ -407,7 +408,7 @@ export default function IDELayout() {
 
     updateRoomsHistory([...roomsHistory, newRoomId]);
 
-    if (ydocRef.current) {
+    if (!isPrivate && ydocRef.current) {
       ydocRef.current.getMap('rooms-sync').set('event', JSON.stringify({
         type: 'create',
         newRoomId: newRoomId,
@@ -460,7 +461,10 @@ export default function IDELayout() {
       console.warn("Could not copy files to renamed room automatically:", err);
     }
 
-    if (ydocRef.current) {
+    const passcodes = JSON.parse(localStorage.getItem('cod-ide-room-passcodes') || '{}');
+    const isOldRoomPrivate = !!passcodes[oldRoomId];
+
+    if (!isOldRoomPrivate && ydocRef.current) {
       ydocRef.current.getMap('rooms-sync').set('event', JSON.stringify({
         type: 'rename',
         oldRoomId: oldRoomId,
@@ -3540,6 +3544,8 @@ export default function IDELayout() {
                   const roomRoles = JSON.parse(localStorage.getItem('cod-ide-room-roles') || '{}');
                   const role = roomRoles[roomId] || "owner";
                   const roleLabel = role.charAt(0).toUpperCase() + role.slice(1);
+                  const passcodesMap = JSON.parse(localStorage.getItem('cod-ide-room-passcodes') || '{}');
+                  const isRoomPrivate = !!passcodesMap[roomId];
 
                   return (
                     <div
@@ -3557,7 +3563,11 @@ export default function IDELayout() {
                     >
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
-                          <Globe className={`w-3.5 h-3.5 ${isActive ? "text-indigo-400" : "text-slate-500"}`} />
+                          {isRoomPrivate ? (
+                            <Lock className={`w-3.5 h-3.5 ${isActive ? "text-indigo-400" : "text-amber-500"}`} />
+                          ) : (
+                            <Globe className={`w-3.5 h-3.5 ${isActive ? "text-indigo-400" : "text-slate-500"}`} />
+                          )}
                           <span className={`font-mono font-bold text-xs truncate max-w-[120px] ${isActive ? "text-indigo-400" : (editorTheme === "vs-dark" ? "text-slate-200" : "text-slate-700")}`}>
                             {roomId}
                           </span>
@@ -3580,6 +3590,11 @@ export default function IDELayout() {
                           }`}>
                             {roleLabel}
                           </span>
+                          {isRoomPrivate && (
+                            <span className="bg-amber-500/10 text-amber-400 border border-amber-500/20 px-1.5 py-0.5 rounded-md font-bold uppercase tracking-wider text-[8px]">
+                              Private
+                            </span>
+                          )}
                         </div>
 
                         {/* Actions (like delete from history) */}
