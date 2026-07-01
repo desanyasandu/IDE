@@ -56,7 +56,8 @@ import {
   Globe,
   Lock,
   Edit2,
-  History
+  History,
+  Shield
 } from "lucide-react";
 
 interface MockFile {
@@ -279,11 +280,24 @@ export default function IDELayout() {
     return uniqueList;
   });
 
+  const roomsHistoryRef = useRef<string[]>([]);
+
   const updateRoomsHistory = (newHistory: string[]) => {
     const uniqueList = Array.from(new Set(newHistory)).filter(Boolean);
     setRoomsHistory(uniqueList);
+    roomsHistoryRef.current = uniqueList;
     localStorage.setItem('cod-ide-rooms-history', JSON.stringify(uniqueList));
   };
+
+  // Keep ref in sync with state
+  useEffect(() => {
+    roomsHistoryRef.current = roomsHistory;
+  }, [roomsHistory]);
+
+  // Create Room Modal states
+  const [showCreateRoomModal, setShowCreateRoomModal] = useState(false);
+  const [createRoomName, setCreateRoomName] = useState("");
+  const [createRoomType, setCreateRoomType] = useState<"public" | "private">("public");
 
   const [invitation, setInvitation] = useState<{ room: string; role: string; passcode?: string } | null>(null);
 
@@ -363,23 +377,28 @@ export default function IDELayout() {
     setUserRole(role as any);
   };
 
-  const handleCreateNewRoom = async () => {
-    const defaultRoomId = `room-${Math.random().toString(36).substring(2, 9)}`;
-    const roomNameInput = window.prompt("Enter a name for the new workspace room:", defaultRoomId);
-    if (roomNameInput === null) return; // User cancelled
-    const newRoomId = roomNameInput.trim().replace(/[^a-zA-Z0-9-_]/g, '-') || defaultRoomId;
+  const handleCreateNewRoom = () => {
+    setCreateRoomName(`room-${Math.random().toString(36).substring(2, 9)}`);
+    setCreateRoomType("public");
+    setShowCreateRoomModal(true);
+  };
 
-    const isPrivate = window.confirm("Would you like to make this room PRIVATE? (Only users with the passcode link will be able to access. Click Cancel for Public.)");
+  const handleConfirmCreateRoom = async () => {
+    const newRoomId = createRoomName.trim().replace(/[^a-zA-Z0-9-_]/g, '-');
+    if (!newRoomId) return;
+
+    const isPrivate = createRoomType === "private";
+    setShowCreateRoomModal(false);
     
     // Call backend API to create workspace room (saving in MongoDB)
     let passcode = "";
     try {
       const response = await fetch(`${BACKEND_API_URL}/workspace`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "ngrok-skip-browser-warning": "true" },
         body: JSON.stringify({
           workspace_id: newRoomId,
-          name: roomNameInput.trim() || newRoomId,
+          name: createRoomName.trim() || newRoomId,
           type: isPrivate ? "private" : "public"
         })
       });
@@ -432,37 +451,41 @@ export default function IDELayout() {
       return;
     }
 
-    // Copy files on backend to the new room ID
+    const passcodes = JSON.parse(localStorage.getItem('cod-ide-room-passcodes') || '{}');
+    const oldPasscode = passcodes[oldRoomId] || "";
+    const isOldRoomPrivate = !!oldPasscode;
+
+    // Call backend rename endpoint — it migrates files + cleans up old data
     try {
-      const response = await fetch(`${BACKEND_API_URL}/workspace/${oldRoomId}/files`, {
-        headers: { "ngrok-skip-browser-warning": "true" }
+      const url = new URL(`${BACKEND_API_URL}/workspace/${oldRoomId}/rename`);
+      if (oldPasscode) url.searchParams.set('passcode', oldPasscode);
+
+      const response = await fetch(url.toString(), {
+        method: "PUT",
+        headers: { 
+          "Content-Type": "application/json",
+          "ngrok-skip-browser-warning": "true"
+        },
+        body: JSON.stringify({
+          new_workspace_id: sanitizedNewRoomId,
+          new_name: newRoomName.trim()
+        })
       });
-      if (response.ok) {
-        const data = await response.json();
-        if (Array.isArray(data) && data.length > 0) {
-          await Promise.all(data.map(async (file: any) => {
-            await fetch(`${BACKEND_API_URL}/workspace/${sanitizedNewRoomId}/files`, {
-              method: "POST",
-              headers: { 
-                "Content-Type": "application/json",
-                "ngrok-skip-browser-warning": "true"
-              },
-              body: JSON.stringify({
-                name: file.name,
-                path: file.path,
-                content: file.content || "",
-                language: file.language || "typescript"
-              })
-            });
-          }));
-        }
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        alert(err.detail || "Failed to rename workspace on server.");
+        return;
       }
     } catch (err) {
-      console.warn("Could not copy files to renamed room automatically:", err);
+      console.warn("Could not rename workspace on backend:", err);
     }
 
-    const passcodes = JSON.parse(localStorage.getItem('cod-ide-room-passcodes') || '{}');
-    const isOldRoomPrivate = !!passcodes[oldRoomId];
+    // Migrate passcode from old room to new room in localStorage
+    if (isOldRoomPrivate) {
+      delete passcodes[oldRoomId];
+      passcodes[sanitizedNewRoomId] = oldPasscode;
+      localStorage.setItem('cod-ide-room-passcodes', JSON.stringify(passcodes));
+    }
 
     if (!isOldRoomPrivate && ydocRef.current) {
       ydocRef.current.getMap('rooms-sync').set('event', JSON.stringify({
@@ -1052,14 +1075,16 @@ export default function IDELayout() {
         const parsed = JSON.parse(rawEvent);
         if (!parsed || !parsed.newRoomId) return;
 
+        const currentHistory = roomsHistoryRef.current;
+
         if (parsed.type === 'create') {
-          updateRoomsHistory([...roomsHistory, parsed.newRoomId]);
+          updateRoomsHistory([...currentHistory, parsed.newRoomId]);
         } else if (parsed.type === 'rename') {
           const oldId = parsed.oldRoomId;
           const newId = parsed.newRoomId;
 
-          // Update local history
-          const nextHistory = roomsHistory.map(r => r === oldId ? newId : r);
+          // Update local history using ref for fresh value
+          const nextHistory = currentHistory.map(r => r === oldId ? newId : r);
           updateRoomsHistory([...nextHistory, newId]);
 
           // Update roles map in localStorage
@@ -3611,13 +3636,33 @@ export default function IDELayout() {
                           </button>
                           {roomId !== "my-room" && (
                             <button
-                              onClick={(e) => {
+                              onClick={async (e) => {
                                 e.stopPropagation();
-                                const confirmDelete = window.confirm(`Remove ${roomId} from history?`);
+                                const confirmDelete = window.confirm(`Delete room "${roomId}"? This will remove it from history and delete all data from the server.`);
                                 if (confirmDelete) {
+                                  // Call backend DELETE to clean up MongoDB + Redis
+                                  try {
+                                    const passcodes = JSON.parse(localStorage.getItem('cod-ide-room-passcodes') || '{}');
+                                    const passcode = passcodes[roomId] || "";
+                                    const url = new URL(`${BACKEND_API_URL}/workspace/${roomId}`);
+                                    if (passcode) url.searchParams.set('passcode', passcode);
+
+                                    await fetch(url.toString(), {
+                                      method: "DELETE",
+                                      headers: { "ngrok-skip-browser-warning": "true" }
+                                    });
+
+                                    // Clean passcode from localStorage
+                                    if (passcode) {
+                                      delete passcodes[roomId];
+                                      localStorage.setItem('cod-ide-room-passcodes', JSON.stringify(passcodes));
+                                    }
+                                  } catch (err) {
+                                    console.warn("Could not delete workspace from backend:", err);
+                                  }
+
                                   const updatedHistory = roomsHistory.filter(r => r !== roomId);
-                                  setRoomsHistory(updatedHistory);
-                                  localStorage.setItem('cod-ide-rooms-history', JSON.stringify(updatedHistory));
+                                  updateRoomsHistory(updatedHistory);
                                   
                                   const roles = JSON.parse(localStorage.getItem('cod-ide-room-roles') || '{}');
                                   delete roles[roomId];
@@ -3629,7 +3674,7 @@ export default function IDELayout() {
                                 }
                               }}
                               className={`p-1 rounded hover:bg-red-500/10 text-slate-500 hover:text-red-400 transition-colors`}
-                              title="Delete room from history"
+                              title="Delete room"
                             >
                               <Trash2 className="w-3 h-3" />
                             </button>
@@ -5127,6 +5172,199 @@ export default function IDELayout() {
         onChangeName={handleChangeName}
         userRole={userRole}
       />
+
+      {/* Create Room Modal */}
+      {showCreateRoomModal && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[100] flex items-center justify-center p-4 animate-fade-in duration-300">
+          <div className={`w-full max-w-[480px] rounded-2xl shadow-2xl flex flex-col overflow-hidden transition-all duration-300 transform scale-100 ${
+            editorTheme === "vs-dark"
+              ? "bg-[#15151c]/95 border border-[#2d2d35] text-slate-300"
+              : "bg-white border border-slate-200 text-slate-700 shadow-slate-200/50"
+          }`}>
+            {/* Header */}
+            <div className={`px-6 py-5 border-b flex items-center justify-between transition-colors duration-250 ${
+              editorTheme === "vs-dark" ? "border-slate-800/80" : "border-slate-100"
+            }`}>
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-indigo-500/15 flex items-center justify-center">
+                  <Plus className="w-4.5 h-4.5 text-indigo-400" />
+                </div>
+                <h2 className={`text-md font-bold tracking-wide ${
+                  editorTheme === "vs-dark" ? "text-white" : "text-slate-900"
+                }`}>
+                  Create New Workspace
+                </h2>
+              </div>
+              <button
+                onClick={() => setShowCreateRoomModal(false)}
+                className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                  editorTheme === "vs-dark"
+                    ? "hover:bg-slate-800 text-slate-500 hover:text-slate-300"
+                    : "hover:bg-slate-100 text-slate-400 hover:text-slate-600"
+                }`}
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="px-6 py-5 space-y-5">
+              {/* Room Name Input */}
+              <div>
+                <label className={`block text-[11px] font-semibold uppercase tracking-wider mb-2 ${
+                  editorTheme === "vs-dark" ? "text-slate-400" : "text-slate-500"
+                }`}>
+                  Workspace Name
+                </label>
+                <input
+                  type="text"
+                  value={createRoomName}
+                  onChange={(e) => setCreateRoomName(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleConfirmCreateRoom(); }}
+                  placeholder="e.g. my-project"
+                  autoFocus
+                  className={`w-full px-4 py-3 rounded-xl border text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all ${
+                    editorTheme === "vs-dark"
+                      ? "bg-[#1a1a22] border-slate-800 text-white placeholder-slate-600"
+                      : "bg-slate-50 border-slate-200 text-slate-900 placeholder-slate-400"
+                  }`}
+                />
+                <p className={`text-[10px] mt-1.5 ${
+                  editorTheme === "vs-dark" ? "text-slate-600" : "text-slate-400"
+                }`}>
+                  Only letters, numbers, hyphens and underscores allowed.
+                </p>
+              </div>
+
+              {/* Room Type Selector */}
+              <div>
+                <label className={`block text-[11px] font-semibold uppercase tracking-wider mb-2.5 ${
+                  editorTheme === "vs-dark" ? "text-slate-400" : "text-slate-500"
+                }`}>
+                  Visibility
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  {/* Public Option */}
+                  <button
+                    onClick={() => setCreateRoomType("public")}
+                    className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all duration-200 cursor-pointer ${
+                      createRoomType === "public"
+                        ? (editorTheme === "vs-dark"
+                            ? "border-indigo-500 bg-indigo-950/30 shadow-md shadow-indigo-950/20"
+                            : "border-indigo-500 bg-indigo-50/80 shadow-sm")
+                        : (editorTheme === "vs-dark"
+                            ? "border-slate-800 bg-[#18181c] hover:border-slate-700 hover:bg-slate-800/30"
+                            : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50")
+                    }`}
+                  >
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                      createRoomType === "public"
+                        ? "bg-indigo-500/20"
+                        : (editorTheme === "vs-dark" ? "bg-slate-800/60" : "bg-slate-100")
+                    }`}>
+                      <Globe className={`w-5 h-5 ${
+                        createRoomType === "public" ? "text-indigo-400" : "text-slate-500"
+                      }`} />
+                    </div>
+                    <span className={`text-xs font-bold ${
+                      createRoomType === "public"
+                        ? "text-indigo-400"
+                        : (editorTheme === "vs-dark" ? "text-slate-400" : "text-slate-600")
+                    }`}>
+                      Public
+                    </span>
+                    <span className={`text-[10px] text-center leading-tight ${
+                      editorTheme === "vs-dark" ? "text-slate-600" : "text-slate-400"
+                    }`}>
+                      Anyone with the link can join
+                    </span>
+                    {createRoomType === "public" && (
+                      <div className="w-5 h-5 rounded-full bg-indigo-500 flex items-center justify-center">
+                        <Check className="w-3 h-3 text-white" />
+                      </div>
+                    )}
+                  </button>
+
+                  {/* Private Option */}
+                  <button
+                    onClick={() => setCreateRoomType("private")}
+                    className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all duration-200 cursor-pointer ${
+                      createRoomType === "private"
+                        ? (editorTheme === "vs-dark"
+                            ? "border-amber-500 bg-amber-950/20 shadow-md shadow-amber-950/20"
+                            : "border-amber-500 bg-amber-50/80 shadow-sm")
+                        : (editorTheme === "vs-dark"
+                            ? "border-slate-800 bg-[#18181c] hover:border-slate-700 hover:bg-slate-800/30"
+                            : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50")
+                    }`}
+                  >
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                      createRoomType === "private"
+                        ? "bg-amber-500/20"
+                        : (editorTheme === "vs-dark" ? "bg-slate-800/60" : "bg-slate-100")
+                    }`}>
+                      <Shield className={`w-5 h-5 ${
+                        createRoomType === "private" ? "text-amber-400" : "text-slate-500"
+                      }`} />
+                    </div>
+                    <span className={`text-xs font-bold ${
+                      createRoomType === "private"
+                        ? "text-amber-400"
+                        : (editorTheme === "vs-dark" ? "text-slate-400" : "text-slate-600")
+                    }`}>
+                      Private
+                    </span>
+                    <span className={`text-[10px] text-center leading-tight ${
+                      editorTheme === "vs-dark" ? "text-slate-600" : "text-slate-400"
+                    }`}>
+                      Passcode required to access
+                    </span>
+                    {createRoomType === "private" && (
+                      <div className="w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center">
+                        <Check className="w-3 h-3 text-white" />
+                      </div>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className={`px-6 py-4 border-t flex items-center justify-end gap-3 ${
+              editorTheme === "vs-dark" ? "border-slate-800/80" : "border-slate-100"
+            }`}>
+              <button
+                onClick={() => setShowCreateRoomModal(false)}
+                className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                  editorTheme === "vs-dark"
+                    ? "text-slate-400 hover:text-white hover:bg-slate-800"
+                    : "text-slate-500 hover:text-slate-800 hover:bg-slate-100"
+                }`}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmCreateRoom}
+                disabled={!createRoomName.trim()}
+                className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer flex items-center gap-2 ${
+                  !createRoomName.trim()
+                    ? "bg-slate-700 text-slate-500 cursor-not-allowed shadow-none"
+                    : createRoomType === "private"
+                      ? "bg-amber-600 hover:bg-amber-500 text-white shadow-amber-900/30 hover:shadow-[0_0_15px_rgba(245,158,11,0.3)]"
+                      : "bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-900/30 hover:shadow-[0_0_15px_rgba(99,102,241,0.4)]"
+                }`}
+              >
+                {createRoomType === "private" ? (
+                  <Lock className="w-3.5 h-3.5" />
+                ) : (
+                  <Plus className="w-3.5 h-3.5" />
+                )}
+                Create {createRoomType === "private" ? "Private" : "Public"} Room
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Invitation Modal */}
       {invitation && (
