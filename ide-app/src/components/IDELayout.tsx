@@ -494,9 +494,19 @@ export default function IDELayout() {
     setFiles({});
     setOpenTabs([]);
     setActiveFilePath("");
+    setIsLocalProject(false);
+    setLocalDirName("");
+    localDirectoryHandleRef.current = null;
+    localFileHandlesRef.current.clear();
   }, [workspaceId]);
 
   const BACKEND_API_URL = "https://quench-mortified-amaze.ngrok-free.dev";
+
+  // Local project states
+  const [isLocalProject, setIsLocalProject] = useState<boolean>(false);
+  const [localDirName, setLocalDirName] = useState<string>("");
+  const localDirectoryHandleRef = useRef<any>(null);
+  const localFileHandlesRef = useRef<Map<string, any>>(new Map());
 
   // File explorer states
   const [files, setFiles] = useState<Record<string, MockFile>>(initialFiles);
@@ -525,8 +535,202 @@ export default function IDELayout() {
     });
   }, [workspaceId]);
 
+  // Open local folder / project using File System Access API
+  const handleOpenLocalFolder = async () => {
+    try {
+      if (!('showDirectoryPicker' in window)) {
+        alert("Your browser does not support local directory access. Please use Chrome, Edge, or Opera.");
+        return;
+      }
+      
+      const dirHandle = await (window as any).showDirectoryPicker();
+      setIsLocalProject(true);
+      setLocalDirName(dirHandle.name);
+      localDirectoryHandleRef.current = dirHandle;
+      localFileHandlesRef.current.clear();
+      
+      const loadedFiles: Record<string, MockFile> = {};
+      
+      const readDirectory = async (directoryHandle: any, currentPath: string = "") => {
+        for await (const entry of directoryHandle.values()) {
+          const entryPath = currentPath ? `${currentPath}/${entry.name}` : entry.name;
+          
+          if (entry.kind === 'file') {
+            if (entry.name.startsWith('.') || entryPath.includes('node_modules/') || entryPath.includes('.git/')) {
+              continue;
+            }
+            
+            const fileHandle = entry;
+            localFileHandlesRef.current.set(entryPath, fileHandle);
+            
+            try {
+              const file = await fileHandle.getFile();
+              const textContent = await file.text();
+              
+              let language = "javascript";
+              if (entry.name.endsWith(".ts") || entry.name.endsWith(".tsx")) language = "typescript";
+              else if (entry.name.endsWith(".css")) language = "css";
+              else if (entry.name.endsWith(".json")) language = "json";
+              else if (entry.name.endsWith(".html")) language = "html";
+              else if (entry.name.endsWith(".py")) language = "python";
+              else if (entry.name.endsWith(".md")) language = "markdown";
+              else if (entry.name.endsWith(".txt")) language = "plaintext";
+              
+              loadedFiles[entryPath] = {
+                id: entryPath,
+                name: entry.name,
+                path: entryPath,
+                language: language,
+                content: textContent
+              };
+            } catch (fileErr) {
+              console.warn(`Could not read file ${entryPath}:`, fileErr);
+            }
+          } else if (entry.kind === 'directory') {
+            if (entry.name === 'node_modules' || entry.name === '.git' || entry.name === '.vscode' || entry.name === 'dist') {
+              continue;
+            }
+            await readDirectory(entry, entryPath);
+          }
+        }
+      };
+      
+      await readDirectory(dirHandle);
+      
+      setFiles(loadedFiles);
+      
+      const filePaths = Object.keys(loadedFiles);
+      if (filePaths.length > 0) {
+        filePaths.sort();
+        setActiveFilePath(filePaths[0]);
+        setOpenTabs([filePaths[0]]);
+      } else {
+        setActiveFilePath("");
+        setOpenTabs([]);
+      }
+      
+      alert(`Successfully opened local project: ${dirHandle.name}`);
+    } catch (err: any) {
+      if (err.name !== 'AbortError') {
+        console.error("Error opening directory:", err);
+        alert(`Failed to open directory: ${err.message}`);
+      }
+    }
+  };
+
+  // Open single local file
+  const handleOpenLocalFile = async () => {
+    try {
+      if (!('showOpenFilePicker' in window)) {
+        alert("Your browser does not support local file access. Please use Chrome, Edge, or Opera.");
+        return;
+      }
+      
+      const [fileHandle] = await (window as any).showOpenFilePicker();
+      const file = await fileHandle.getFile();
+      const textContent = await file.text();
+      
+      let language = "javascript";
+      if (file.name.endsWith(".ts") || file.name.endsWith(".tsx")) language = "typescript";
+      else if (file.name.endsWith(".css")) language = "css";
+      else if (file.name.endsWith(".json")) language = "json";
+      else if (file.name.endsWith(".html")) language = "html";
+      else if (file.name.endsWith(".py")) language = "python";
+      else if (file.name.endsWith(".md")) language = "markdown";
+      else if (file.name.endsWith(".txt")) language = "plaintext";
+      
+      const filePath = file.name;
+      localFileHandlesRef.current.set(filePath, fileHandle);
+      setIsLocalProject(true);
+      
+      setFiles(prev => ({
+        ...prev,
+        [filePath]: {
+          id: filePath,
+          name: file.name,
+          path: filePath,
+          language: language,
+          content: textContent
+        }
+      }));
+      
+      handleOpenFile(filePath);
+      alert(`Opened file: ${file.name}`);
+    } catch (err: any) {
+      if (err.name !== 'AbortError') {
+        console.error("Error opening file:", err);
+        alert(`Failed to open file: ${err.message}`);
+      }
+    }
+  };
+
+  // Save active file content back to disk
+  const handleSaveFile = useCallback(async () => {
+    if (!activeFilePath) return;
+    
+    if (isLocalProject) {
+      try {
+        const fileHandle = localFileHandlesRef.current.get(activeFilePath);
+        if (fileHandle) {
+          const writable = await fileHandle.createWritable();
+          await writable.write(files[activeFilePath]?.content || "");
+          await writable.close();
+          console.log(`Saved ${activeFilePath} to local disk.`);
+        } else {
+          alert("File handle not found. Try 'Save As...'");
+        }
+      } catch (err: any) {
+        console.error("Failed to save local file:", err);
+        alert(`Failed to save file: ${err.message}`);
+      }
+    } else {
+      alert("Changes synced automatically with the collaborative room!");
+    }
+  }, [activeFilePath, isLocalProject, files]);
+
+  // Save file under new name
+  const handleSaveFileAs = async () => {
+    if (!activeFilePath) return;
+    try {
+      if (!('showSaveFilePicker' in window)) {
+        alert("Your browser does not support local file saving. Please use Chrome, Edge, or Opera.");
+        return;
+      }
+      
+      const file = files[activeFilePath];
+      const handle = await (window as any).showSaveFilePicker({
+        suggestedName: file.name
+      });
+      const writable = await handle.createWritable();
+      await writable.write(file.content);
+      await writable.close();
+      alert(`Successfully saved file as ${handle.name}`);
+    } catch (err: any) {
+      if (err.name !== 'AbortError') {
+        console.error("Error saving file as:", err);
+        alert(`Failed to save file: ${err.message}`);
+      }
+    }
+  };
+
+  // Close local project and return to remote
+  const handleCloseLocalProject = useCallback(() => {
+    setIsLocalProject(false);
+    setLocalDirName("");
+    localDirectoryHandleRef.current = null;
+    localFileHandlesRef.current.clear();
+    setFiles({});
+    setOpenTabs([]);
+    setActiveFilePath("");
+    setTimeout(() => {
+      fetchWorkspaceFiles();
+    }, 100);
+    alert("Closed local project and reconnected to remote workspace.");
+  }, [workspaceId]);
+
   // Bug 7 fix: Wrap fetchWorkspaceFiles in useCallback to avoid stale closures
   const fetchWorkspaceFiles = useCallback(async () => {
+    if (isLocalProject) return;
     try {
       const passcodes = JSON.parse(localStorage.getItem('cod-ide-room-passcodes') || '{}');
       const passcode = passcodes[workspaceId] || new URLSearchParams(window.location.search).get('passcode') || "";
@@ -573,21 +777,24 @@ export default function IDELayout() {
     } catch (err) {
       console.error("Failed to fetch files from backend REST API:", err);
     }
-  }, [workspaceId, activeFilePath]);
+  }, [workspaceId, activeFilePath, isLocalProject]);
 
   // Fetch workspace files from backend on component mount
   useEffect(() => {
-    fetchWorkspaceFiles();
-  }, [fetchWorkspaceFiles]);
+    if (!isLocalProject) {
+      fetchWorkspaceFiles();
+    }
+  }, [fetchWorkspaceFiles, isLocalProject]);
 
   // Fallback Polling: Fetch workspace files list every 5 seconds to ensure sync
   // even if WebSocket connection is blocked by ngrok
   useEffect(() => {
+    if (isLocalProject) return;
     const interval = setInterval(() => {
       fetchWorkspaceFiles();
     }, 5000);
     return () => clearInterval(interval);
-  }, [workspaceId, fetchWorkspaceFiles]);
+  }, [workspaceId, fetchWorkspaceFiles, isLocalProject]);
 
   // Editor states
   const [editorTheme, setEditorTheme] = useState<"vs-dark" | "light">("vs-dark");
@@ -901,7 +1108,7 @@ export default function IDELayout() {
 
   // 2. Monaco binding per file
   useEffect(() => {
-    if (!providerReady || !editorInstance || !ydocRef.current || !providerRef.current) return;
+    if (isLocalProject || !providerReady || !editorInstance || !ydocRef.current || !providerRef.current) return;
 
     const doc = ydocRef.current;
     const provider = providerRef.current;
@@ -934,7 +1141,7 @@ export default function IDELayout() {
         bindingRef.current = null;
       }
     };
-  }, [activeFilePath, editorInstance, providerReady]);
+  }, [activeFilePath, editorInstance, providerReady, isLocalProject]);
 
   // Call settings state
   const [isMuted, setIsMuted] = useState(false);
@@ -1785,7 +1992,7 @@ export default function IDELayout() {
 
   // Create workspace file in backend
   const handleCreateFile = async () => {
-    if (userRole === "viewer") {
+    if (userRole === "viewer" && !isLocalProject) {
       alert("Permission Denied: Viewers cannot create files.");
       return;
     }
@@ -1797,6 +2004,51 @@ export default function IDELayout() {
     else if (filename.endsWith(".css")) language = "css";
     else if (filename.endsWith(".json")) language = "json";
     else if (filename.endsWith(".html")) language = "html";
+    else if (filename.endsWith(".py")) language = "python";
+    else if (filename.endsWith(".md")) language = "markdown";
+    else if (filename.endsWith(".txt")) language = "plaintext";
+
+    if (isLocalProject) {
+      try {
+        if (!localDirectoryHandleRef.current) {
+          alert("No local project open.");
+          return;
+        }
+        const parts = filename.split("/");
+        const fileName = parts.pop()!;
+        
+        let currentDirHandle = localDirectoryHandleRef.current;
+        for (const dirName of parts) {
+          if (dirName) {
+            currentDirHandle = await currentDirHandle.getDirectoryHandle(dirName, { create: true });
+          }
+        }
+        
+        const newFileHandle = await currentDirHandle.getFileHandle(fileName, { create: true });
+        localFileHandlesRef.current.set(filename, newFileHandle);
+        
+        const initialContent = `// New file ${filename}\n`;
+        const writable = await newFileHandle.createWritable();
+        await writable.write(initialContent);
+        await writable.close();
+        
+        setFiles(prev => ({
+          ...prev,
+          [filename]: {
+            id: filename,
+            name: fileName,
+            path: filename,
+            language: language,
+            content: initialContent
+          }
+        }));
+        handleOpenFile(filename);
+      } catch (err: any) {
+        console.error("Failed to create local file:", err);
+        alert(`Failed to create file: ${err.message}`);
+      }
+      return;
+    }
 
     const payload = {
       name: filename.split('/').pop() || filename,
@@ -1859,7 +2111,7 @@ export default function IDELayout() {
   // Delete workspace file in backend
   const handleDeleteFile = async (e: React.MouseEvent, path: string) => {
     e.stopPropagation();
-    if (userRole === "viewer") {
+    if (userRole === "viewer" && !isLocalProject) {
       alert("Permission Denied: Viewers cannot delete files.");
       return;
     }
@@ -1867,6 +2119,43 @@ export default function IDELayout() {
     if (!file) return;
 
     if (!confirm(`Are you sure you want to delete ${file.name}?`)) return;
+
+    if (isLocalProject) {
+      try {
+        if (!localDirectoryHandleRef.current) {
+          alert("No local project open.");
+          return;
+        }
+        const parts = path.split("/");
+        const fileName = parts.pop()!;
+        
+        let currentDirHandle = localDirectoryHandleRef.current;
+        for (const dirName of parts) {
+          if (dirName) {
+            currentDirHandle = await currentDirHandle.getDirectoryHandle(dirName);
+          }
+        }
+        
+        await currentDirHandle.removeEntry(fileName);
+        localFileHandlesRef.current.delete(path);
+        
+        setFiles(prev => {
+          const newFiles = { ...prev };
+          delete newFiles[path];
+          return newFiles;
+        });
+        setRecentFiles(prev => {
+          const updated = prev.filter(f => f !== path);
+          localStorage.setItem(`recent-files-${workspaceId}`, JSON.stringify(updated));
+          return updated;
+        });
+        handleCloseTab(null as any, path);
+      } catch (err: any) {
+        console.error("Failed to delete local file:", err);
+        alert(`Failed to delete file: ${err.message}`);
+      }
+      return;
+    }
 
     const fileId = file.id || file.name;
 
@@ -2187,13 +2476,19 @@ export default function IDELayout() {
   const IDE_MENUS: Record<string, MenuItem[]> = {
     File: [
       { label: "New File", shortcut: "Ctrl+N", action: handleCreateFile },
+      { label: "Open Folder...", shortcut: "Ctrl+O", action: handleOpenLocalFolder },
+      { label: "Open File...", action: handleOpenLocalFile },
       { label: "New Workspace / Room", action: handleCreateNewRoom },
       { label: "New Window", shortcut: "Ctrl+Shift+N", action: () => window.open(window.location.href, '_blank') },
       { divider: true },
-      { label: "Save", shortcut: "Ctrl+S", action: () => alert("File saved successfully!") },
-      { label: "Save As...", shortcut: "Ctrl+Shift+S", action: () => alert("Save As dialog opened (mock)") },
+      { label: "Save", shortcut: "Ctrl+S", action: handleSaveFile },
+      { label: "Save As...", shortcut: "Ctrl+Shift+S", action: handleSaveFileAs },
       { divider: true },
       { label: "Share Workspace", action: () => setIsShareModalOpen(true) },
+      ...(isLocalProject ? [
+        { divider: true },
+        { label: "Close Local Project", action: handleCloseLocalProject }
+      ] : []),
       { divider: true },
       { label: "Exit", shortcut: "Ctrl+Q", action: () => window.close() }
     ],
@@ -2248,6 +2543,29 @@ export default function IDELayout() {
     if (fileName.endsWith(".json")) return <FileJson className="w-4 h-4 text-amber-500 shrink-0" />;
     return <FileCode className="w-4 h-4 text-slate-400 shrink-0" />;
   };
+  // 3. Global keyboard shortcuts for local operations
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ctrl+S / Cmd+S: Save file
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        handleSaveFile();
+      }
+      // Ctrl+O / Cmd+O: Open Folder / Project
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'o') {
+        e.preventDefault();
+        handleOpenLocalFolder();
+      }
+      // Ctrl+N / Cmd+N: New File
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'n' && !e.shiftKey) {
+        e.preventDefault();
+        handleCreateFile();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleSaveFile, handleOpenLocalFolder, handleCreateFile]);
 
   const activeFile = files[activeFilePath] || initialFiles["src/components/IDELayout.tsx"];
 
@@ -2675,7 +2993,14 @@ export default function IDELayout() {
               <div className={`p-3.5 flex items-center justify-between font-semibold tracking-wider text-[10px] uppercase border-b transition-colors duration-250 ${
                 editorTheme === "vs-dark" ? "border-[#25252b] text-slate-400" : "border-[#e5e7eb] text-slate-500"
               }`}>
-                <span>Explorer: Project</span>
+                <div className="flex items-center gap-2">
+                  <span>Explorer: {isLocalProject ? (localDirName || "Local Project") : "Project"}</span>
+                  {isLocalProject && (
+                    <span className="bg-emerald-500/15 text-emerald-400 px-1.5 py-0.5 rounded text-[8px] font-bold border border-emerald-500/30 normal-case tracking-normal">
+                      Local
+                    </span>
+                  )}
+                </div>
                 <div className="flex items-center gap-1.5">
                   <button 
                     onClick={handleCreateFile}
@@ -2750,7 +3075,7 @@ export default function IDELayout() {
                   >
                     <ChevronDown className={`w-3.5 h-3.5 text-slate-500 transition-transform duration-250 ${!explorerExpanded.root ? "-rotate-90" : ""}`} />
                     <Folder className="w-4.5 h-4.5 text-amber-500 fill-amber-500/10 shrink-0" />
-                    <span>Workspace Files</span>
+                    <span>{isLocalProject ? "Local Files" : "Workspace Files"}</span>
                   </button>
 
                   {explorerExpanded.root && (
