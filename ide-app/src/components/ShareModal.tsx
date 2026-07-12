@@ -28,6 +28,7 @@ export default function ShareModal({
   const [inviteInput, setInviteInput] = useState("");
   const [isEditingMyName, setIsEditingMyName] = useState(false);
   const [myNameInput, setMyNameInput] = useState("");
+  // fix this fake avatar and email generation for real use cases, this is just for demonstration purposes
   const [collaborators, setCollaborators] = useState([
     { name: "Alex (AI Expert)", email: "alex@example.com", avatar: "https://api.dicebear.com/7.x/initials/svg?seed=Alex", role: "Editor" },
     { name: "Sam Designer", email: "sam@example.com", avatar: "https://api.dicebear.com/7.x/initials/svg?seed=Sam", role: "Viewer" }
