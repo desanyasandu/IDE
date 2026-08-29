@@ -20,40 +20,40 @@ export const StatusBar: React.FC<StatusBarProps> = ({
   if (!showStatusBar) return null;
 
   return (
-    <footer className={`h-6.5 flex items-center justify-between px-4 text-[11px] select-none z-20 shrink-0 font-medium border-t transition-colors duration-250 ${
+    <footer className={`h-7.5 flex items-center justify-between px-4 text-[12.5px] select-none z-20 shrink-0 font-medium border-t transition-colors duration-250 ${
       editorTheme === "vs-dark"
-        ? "bg-[#0d0d11] border-[#1c1c22] text-slate-400"
-        : "bg-white border-slate-200 text-slate-600 shadow-[0_-1px_3px_rgba(0,0,0,0.02)]"
+        ? "bg-[#0d0d11] border-[#1c1c22] text-slate-300"
+        : "bg-white border-slate-200 text-slate-700 shadow-[0_-1px_3px_rgba(0,0,0,0.02)]"
     }`}>
       <div className="flex items-center gap-4">
         <div className={`flex items-center gap-1 px-2.5 py-0.5 cursor-pointer h-full transition-colors ${
-          editorTheme === "vs-dark" ? "hover:bg-slate-800/60 hover:text-slate-200" : "hover:bg-slate-100 hover:text-slate-900"
+          editorTheme === "vs-dark" ? "hover:bg-slate-800/60 hover:text-slate-100" : "hover:bg-slate-100 hover:text-slate-900"
         }`}>
-          <GitBranch className="w-3.5 h-3.5" />
+          <GitBranch className="w-4 h-4" />
           <span>main</span>
         </div>
         <div className={`flex items-center gap-2.5 px-2.5 py-0.5 cursor-pointer h-full transition-colors ${
-          editorTheme === "vs-dark" ? "hover:bg-slate-800/60 hover:text-slate-200" : "hover:bg-slate-100 hover:text-slate-900"
+          editorTheme === "vs-dark" ? "hover:bg-slate-800/60 hover:text-slate-100" : "hover:bg-slate-100 hover:text-slate-900"
         }`}>
           <div className="flex items-center gap-1">
             <span className="font-bold">0</span>
-            <X className={`w-3 h-3 ${editorTheme === "vs-dark" ? "text-red-400" : "text-red-600"}`} />
+            <X className={`w-3.5 h-3.5 ${editorTheme === "vs-dark" ? "text-red-400" : "text-red-600"}`} />
           </div>
           <div className="flex items-center gap-1">
             <span className="font-bold">0</span>
-            <Bug className={`w-3 h-3 ${editorTheme === "vs-dark" ? "text-amber-400" : "text-amber-600"}`} />
+            <Bug className={`w-3.5 h-3.5 ${editorTheme === "vs-dark" ? "text-amber-400" : "text-amber-600"}`} />
           </div>
         </div>
         <div
           onClick={() => setBottomPanelOpen(prev => !prev)}
-          className={`hidden sm:flex items-center gap-1.5 text-[10px] font-mono px-2 py-0.5 cursor-pointer h-full transition-colors ${
+          className={`hidden sm:flex items-center gap-1.5 text-[12px] font-mono px-2 py-0.5 cursor-pointer h-full transition-colors ${
             editorTheme === "vs-dark"
               ? "text-indigo-400 hover:bg-slate-800/60 hover:text-indigo-300"
               : "text-indigo-600 hover:bg-slate-100 hover:text-indigo-800"
           }`}
           title="Toggle Bottom Console Panel"
         >
-          <TerminalSquare className="w-3.5 h-3.5 shrink-0" />
+          <TerminalSquare className="w-4 h-4 shrink-0" />
           <span>Console: {bottomPanelOpen ? "OPEN" : "CLOSED"}</span>
         </div>
       </div>

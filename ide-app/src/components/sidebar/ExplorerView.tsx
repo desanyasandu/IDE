@@ -31,8 +31,8 @@ export const ExplorerView: React.FC<ExplorerViewProps> = ({
   handleDeleteFile
 }) => {
   return (
-    <div className="flex flex-col h-full text-xs">
-      <div className={`p-3.5 flex items-center justify-between font-semibold tracking-wider text-[10px] uppercase border-b transition-colors duration-250 ${
+    <div className="flex flex-col h-full text-[13.5px]">
+      <div className={`p-3.5 flex items-center justify-between font-semibold tracking-wider text-[11px] uppercase border-b transition-colors duration-250 ${
         editorTheme === "vs-dark" ? "border-[#25252b] text-slate-400" : "border-[#e5e7eb] text-slate-500"
       }`}>
         <div className="flex items-center gap-2">

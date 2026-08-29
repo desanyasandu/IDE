@@ -1,5 +1,5 @@
 import React from "react";
-import { User, Sparkles, Copy, CheckCheck } from "lucide-react";
+import { User, Bot, Copy, CheckCheck } from "lucide-react";
 import { ChatMessage, EditorTheme } from "../../types/ide";
 
 interface ChatMessageBubbleProps {
@@ -27,12 +27,12 @@ export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = ({
           ? "bg-slate-800/80 border-slate-700/50 text-slate-300"
           : "bg-purple-950/60 border-purple-800/50 text-purple-400 shadow-[0_0_10px_rgba(168,85,247,0.1)]"
       }`}>
-        {msg.sender === "user" ? <User className="w-4 h-4" /> : <Sparkles className="w-4 h-4" />}
+        {msg.sender === "user" ? <User className="w-4 h-4" /> : <Bot className="w-4.5 h-4.5" />}
       </div>
 
       {/* Message Bubble */}
       <div className="flex flex-col gap-1.5 max-w-full">
-        <div className={`p-4 rounded-2xl leading-relaxed whitespace-pre-wrap shadow-lg transition-colors duration-250 ${
+        <div className={`p-4 rounded-2xl text-[13px] leading-relaxed whitespace-pre-wrap shadow-lg transition-colors duration-250 ${
           msg.sender === "user"
             ? "bg-gradient-to-br from-purple-600 to-indigo-600 text-white rounded-tr-none shadow-[0_4px_12px_rgba(124,58,237,0.2)]"
             : (editorTheme === "vs-dark"
@@ -49,10 +49,10 @@ export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = ({
                 const actualCode = codeLines.slice(1).join("\n");
                 const copyId = `${msg.id}-${idx}`;
                 return (
-                  <div key={idx} className={`my-3 border rounded-xl overflow-hidden font-mono text-[11px] shadow-lg transition-colors duration-250 ${
+                  <div key={idx} className={`my-3 border rounded-xl overflow-hidden font-mono text-[12px] shadow-lg transition-colors duration-250 ${
                     editorTheme === "vs-dark" ? "border-[#252533] bg-[#07070a] text-slate-300" : "border-slate-200 bg-[#f8fafc] text-slate-700"
                   }`}>
-                    <div className={`px-3.5 py-1.5 text-[9px] font-bold flex justify-between items-center select-none border-b transition-colors duration-250 ${
+                    <div className={`px-3.5 py-1.5 text-[10px] font-bold flex justify-between items-center select-none border-b transition-colors duration-250 ${
                       editorTheme === "vs-dark" ? "bg-[#0b0b10] text-slate-500 border-[#1d1d28]" : "bg-[#f1f5f9] text-slate-500 border-slate-200"
                     }`}>
                       <span className="uppercase tracking-wider font-semibold">{lang || "code"}</span>

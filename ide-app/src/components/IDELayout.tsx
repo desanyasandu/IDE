@@ -789,7 +789,7 @@ export default function IDELayout() {
 
   // Editor states
   const [editorTheme, setEditorTheme] = useState<"vs-dark" | "light">("vs-dark");
-  const [fontSize, setFontSize] = useState<number>(14);
+  const [fontSize, setFontSize] = useState<number>(17);
   const [showSettings, setShowSettings] = useState<boolean>(false);
   const [activeSettingsTab, setActiveSettingsTab] = useState<"editor" | "interface" | "ai">("editor");
   const [minimapEnabled, setMinimapEnabled] = useState<boolean>(true);
@@ -2584,7 +2584,7 @@ export default function IDELayout() {
   return (
     <div
       data-testid="ide-container"
-      className={`flex flex-col w-full h-full select-none overflow-hidden font-sans gpu-layer transition-all duration-700 ease-in-out transform ${
+      className={`flex flex-col w-full h-full select-none overflow-hidden font-mono antialiased text-[14.5px] gpu-layer transition-all duration-700 ease-in-out transform ${
         editorTheme === "vs-dark"
           ? "bg-[#121215] text-slate-200"
           : "bg-[#f3f4f6] text-slate-800"

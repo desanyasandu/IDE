@@ -49,6 +49,9 @@ export const MonacoEditorPane: React.FC<MonacoEditorPaneProps> = ({
           onMount={handleEditorDidMount}
           options={{
             fontSize: fontSize,
+            fontWeight: "500",
+            letterSpacing: 0.3,
+            lineHeight: Math.round(fontSize * 1.55),
             minimap: { enabled: minimapEnabled },
             wordWrap: wordWrap,
             tabSize: tabSize,
@@ -67,8 +70,10 @@ export const MonacoEditorPane: React.FC<MonacoEditorPaneProps> = ({
             readOnly: userRole === "viewer",
             automaticLayout: true,
             cursorSmoothCaretAnimation: "on",
-            fontFamily: `${fontFamily}, Menlo, Monaco, Consolas, monospace`,
-            fontLigatures: true,
+            smoothScrolling: true,
+            padding: { top: 12, bottom: 12 },
+            fontFamily: `'Fira Code', ${fontFamily}, Menlo, Monaco, Consolas, monospace`,
+            fontLigatures: "'calt', 'ss01', 'ss02', 'zero', 'liga'",
             renderLineHighlight: "all",
             quickSuggestions: { other: true, comments: true, strings: true },
             suggestOnTriggerCharacters: true

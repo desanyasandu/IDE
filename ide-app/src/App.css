@@ -1,4 +1,28 @@
+@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400;500;600;700&display=swap');
 @import "tailwindcss";
+
+/* 🔤 Global Typography: Ultra-crisp Fira Code with Ligatures */
+:root {
+  font-family: 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace !important;
+  font-feature-settings: "calt" 1, "zero" 1, "ss01" 1, "ss02" 1;
+  font-variant-ligatures: normal;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body, html, #root {
+  font-family: 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+  font-size: 15px;
+  font-weight: 450;
+  line-height: 1.6;
+  letter-spacing: -0.01em;
+}
+
+button, input, optgroup, select, textarea {
+  font-family: 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+  font-size: inherit;
+}
 
 /* 🚀 GPU & Render Optimizations */
 .gpu-layer {

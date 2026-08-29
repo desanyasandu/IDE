@@ -142,7 +142,7 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
       </div>
 
       {/* Bottom Panel Content */}
-      <div className="flex-1 overflow-y-auto p-3 font-mono text-[11px] leading-relaxed scrollbar-thin select-text">
+      <div className="flex-1 overflow-y-auto p-3 font-mono text-[14.5px] leading-relaxed scrollbar-thin select-text">
         {activeBottomTab === "terminal" && (
           <TerminalView
             editorTheme={editorTheme}

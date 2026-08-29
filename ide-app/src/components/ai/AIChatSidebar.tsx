@@ -247,7 +247,7 @@ export const AIChatSidebar: React.FC<AIChatSidebarProps> = ({
               }}
               disabled={aiStatus !== "idle"}
               placeholder="Ask Copilot to write, change, or review..."
-              className={`flex-1 max-h-24 min-h-[44px] resize-none bg-transparent text-xs placeholder-slate-500 self-center focus:outline-none scrollbar-none py-1 pl-1 ${
+              className={`flex-1 max-h-24 min-h-[44px] resize-none bg-transparent text-sm placeholder-slate-500 self-center focus:outline-none scrollbar-none py-1 pl-1 ${
                 editorTheme === "vs-dark" ? "text-white" : "text-slate-800"
               }`}
               rows={1}
