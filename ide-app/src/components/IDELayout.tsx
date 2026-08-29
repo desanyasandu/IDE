@@ -1,81 +1,24 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import Editor from "@monaco-editor/react";
-import ShareModal from "./ShareModal";
 import * as Y from "yjs";
 import { WebsocketProvider } from "y-websocket";
 import { MonacoBinding } from "y-monaco";
-import {
-  Folder,
-  Search,
-  GitBranch,
-  Settings,
-  ChevronDown,
-  ChevronRight,
-  X,
-  MoreHorizontal,
-  Minus,
-  Check,
-  User,
-  Copy,
-  Bug,
-  Code,
-  FileCode,
-  RefreshCw,
-  FileJson,
-  Plus,
-  Layers,
-  Trash2,
-  Play,
-  Moon,
-  Sun,
-  TerminalSquare,
-  Hash,
-  Send,
-  Terminal,
-  Sparkles,
-  CheckCheck,
-  Mic,
-  MicOff,
-  PhoneCall,
-  PhoneOff,
-  MonitorUp,
-  Volume2,
-  VolumeX,
-  UserPlus,
-  LogOut,
-  LogIn,
-  Target,
-  Download,
-  Upload,
-  GitMerge,
-  Cloud,
-  Circle,
-  ExternalLink,
-  Maximize2,
-  Minimize2,
-  Globe,
-  Lock,
-  Edit2,
-  History,
-  Shield
-} from "lucide-react";
-
-interface MockFile {
-  id?: string;
-  name: string;
-  path: string;
-  language: string;
-  content: string;
-}
-
-const initialFiles: Record<string, MockFile> = {};
-
-interface ChatMessage {
-  id: string;
-  sender: "user" | "ai";
-  text: string;
-  timestamp: string;
-}
+import type { MockFile, ChatMessage, ClientOS } from "../types/ide";
+import { initialFiles } from "../constants/initialFiles";
+import { detectClientOS, getTerminalPrompt, getTerminalHeader } from "../utils/terminal";
+import Header from "./layout/Header";
+import ActivityBar from "./layout/ActivityBar";
+import StatusBar from "./layout/StatusBar";
+import LeftSidebar from "./sidebar/LeftSidebar";
+import EditorArea from "./editor/EditorArea";
+import BottomPanel from "./bottom/BottomPanel";
+import AIChatSidebar from "./ai/AIChatSidebar";
+import CallPanel from "./call/CallPanel";
+import FloatingScreensharePopup from "./call/FloatingScreensharePopup";
+import SettingsModal from "./modals/SettingsModal";
+import CreateRoomModal from "./modals/CreateRoomModal";
+import InvitationModal from "./modals/InvitationModal";
+import SessionEndedScreen from "./modals/SessionEndedScreen";
+import ShareModal from "./ShareModal";
 
 export default function IDELayout() {
   // Sidebar states
@@ -90,43 +33,11 @@ export default function IDELayout() {
   const [bottomPanelOpen, setBottomPanelOpen] = useState(false);
   const [activeBottomTab, setActiveBottomTab] = useState<"terminal" | "output" | "problems">("terminal");
   // OS Detection for terminal custom look and feel
-  const [clientOS] = useState(() => {
-    const ua = navigator.userAgent.toLowerCase();
-    if (ua.includes("mac")) return "macos";
-    if (ua.includes("linux")) return "linux";
-    return "windows";
-  });
+  const [clientOS] = useState<ClientOS>(() => detectClientOS());
 
-  const getTerminalPrompt = (os: string) => {
-    if (os === "macos") return "user@mac-ide workspace % ";
-    if (os === "linux") return "user@linux-ide:~/workspace$ ";
-    return "c:\\Users\\DYD\\Desktop\\IDE\\ide-app> ";
-  };
+  
 
-  const getTerminalHeader = (os: string) => {
-    if (os === "macos") {
-      return [
-        "Last login: Thu Jun 25 10:19:08 on ttys001",
-        "Welcome to macOS! Apple Swift version 5.9",
-        ""
-      ];
-    }
-    if (os === "linux") {
-      return [
-        "Welcome to Ubuntu 22.04.3 LTS (GNU/Linux 6.2.0-37-generic x86_64)",
-        "",
-        " * Documentation:  https://help.ubuntu.com",
-        " * Management:     https://landscape.canonical.com",
-        " * Support:        https://ubuntu.com/pro",
-        ""
-      ];
-    }
-    return [
-      "Microsoft Windows [Version 10.0.22631]",
-      "(c) Microsoft Corporation. All rights reserved.",
-      ""
-    ];
-  };
+  
 
   const [terminalInput, setTerminalInput] = useState("");
   const [terminalHistory, setTerminalHistory] = useState<string[]>(() => {
@@ -2654,18 +2565,7 @@ export default function IDELayout() {
     ]
   };
 
-  const getFileIcon = (fileName: string) => {
-    if (fileName.endsWith(".tsx")) {
-      return (
-        <svg className="w-4 h-4 text-sky-400 shrink-0" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1.09 13.06c-.4.48-1 .74-1.74.74-.78 0-1.39-.28-1.78-.81-.38-.53-.59-1.25-.59-2.09 0-.89.21-1.63.6-2.16.39-.54 1.01-.83 1.78-.83.74 0 1.34.26 1.74.74.39.49.59 1.2.59 2.11 0 .96-.19 1.68-.6 2.14z"/>
-        </svg>
-      );
-    }
-    if (fileName.endsWith(".css")) return <Hash className="w-4 h-4 text-teal-400 shrink-0" />;
-    if (fileName.endsWith(".json")) return <FileJson className="w-4 h-4 text-amber-500 shrink-0" />;
-    return <FileCode className="w-4 h-4 text-slate-400 shrink-0" />;
-  };
+  
   // 3. Global keyboard shortcuts for local operations
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -2692,6 +2592,8 @@ export default function IDELayout() {
 
   const activeFile = files[activeFilePath] || initialFiles["src/components/IDELayout.tsx"];
 
+  
+
   return (
     <div
       data-testid="ide-container"
@@ -2701,2561 +2603,261 @@ export default function IDELayout() {
           : "bg-[#f3f4f6] text-slate-800"
       } ${isExiting ? "scale-[0.93] rotate-1 opacity-0 filter blur-md pointer-events-none" : "scale-100 rotate-0 opacity-100"}`}
     >
-      {/* Top Header / Title Bar */}
-      <header className={`h-11 flex items-center justify-between px-4 text-xs font-medium z-30 border-b transition-colors duration-250 ${
-        editorTheme === "vs-dark"
-          ? "bg-[#1a1a1f] border-[#25252b] text-slate-400"
-          : "bg-[#ffffff] border-[#e5e7eb] text-slate-600 shadow-sm"
-      }`}>
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-1.5 ml-2">
-            <Terminal className="w-3.5 h-3.5 text-indigo-400" />
-            <span className={`font-semibold tracking-wide font-mono transition-colors duration-250 ${editorTheme === "vs-dark" ? "text-slate-300" : "text-slate-700"}`}>COD CODE</span>
-          </div>
+      {/* 1. Top Header */}
+      <Header
+        editorTheme={editorTheme}
+        setEditorTheme={setEditorTheme}
+        activeMenu={activeMenu}
+        setActiveMenu={setActiveMenu}
+        IDE_MENUS={IDE_MENUS}
+        activeFile={activeFile}
+        userRole={userRole}
+        handleCreateNewRoom={handleCreateNewRoom}
+        setIsShareModalOpen={setIsShareModalOpen}
+        bottomPanelOpen={bottomPanelOpen}
+        setBottomPanelOpen={setBottomPanelOpen}
+        rightSidebarOpen={rightSidebarOpen}
+        setRightSidebarOpen={setRightSidebarOpen}
+      />
 
-          {/* Main Menu Bar */}
-          <div className={`hidden lg:flex items-center text-[11px] font-medium transition-colors duration-250 relative ${
-            editorTheme === "vs-dark" ? "text-slate-400" : "text-slate-600"
-          }`}>
-            {Object.keys(IDE_MENUS).map((menuName) => (
-              <div key={menuName} className="relative">
-                <button
-                  onClick={() => setActiveMenu(activeMenu === menuName ? null : menuName)}
-                  onMouseEnter={() => { if (activeMenu && activeMenu !== menuName) setActiveMenu(menuName); }}
-                  className={`px-2 py-1 rounded transition-colors cursor-pointer relative z-50 ${
-                    activeMenu === menuName
-                      ? (editorTheme === "vs-dark" ? "bg-[#25252b] text-slate-100" : "bg-slate-200 text-slate-900")
-                      : (editorTheme === "vs-dark" ? "hover:bg-slate-800/60 hover:text-slate-200" : "hover:bg-slate-200/60 hover:text-slate-900")
-                  }`}
-                >
-                  {menuName}
-                </button>
-
-                {/* Dropdown Menu */}
-                {activeMenu === menuName && (
-                  <div className={`absolute top-full left-0 mt-0.5 min-w-[240px] rounded-lg shadow-2xl border z-50 py-1.5 animate-in fade-in zoom-in-95 duration-100 ${
-                    editorTheme === "vs-dark" ? "bg-[#1e1e24] border-slate-700/80 text-slate-300 shadow-[0_8px_30px_rgba(0,0,0,0.6)]" : "bg-white border-slate-200 text-slate-700 shadow-[0_8px_30px_rgba(0,0,0,0.15)]"
-                  }`}>
-                    {IDE_MENUS[menuName].map((item, idx) =>
-                      item.divider ? (
-                        <hr key={idx} className={`my-1.5 border-t ${editorTheme === "vs-dark" ? "border-slate-700/60" : "border-slate-100"}`} />
-                      ) : (
-                        <button
-                          key={idx}
-                          onClick={() => {
-                            if (item.action) item.action();
-                            setActiveMenu(null);
-                          }}
-                          className={`w-full flex items-center justify-between px-4 py-1.5 text-xs transition-colors cursor-pointer text-left ${
-                            editorTheme === "vs-dark" ? "hover:bg-indigo-600 hover:text-white" : "hover:bg-indigo-50 hover:text-indigo-600"
-                          }`}
-                        >
-                          <span>{item.label}</span>
-                          {item.shortcut && <span className={`text-[10px] opacity-60 ml-6 font-sans tracking-wide`}>{item.shortcut}</span>}
-                        </button>
-                      )
-                    )}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-
-          {/* Click Away Overlay for Menus */}
-          {activeMenu && (
-            <div className="fixed inset-0 z-40" onClick={() => setActiveMenu(null)}></div>
-          )}
-        </div>
-
-        {/* Active file display */}
-        <div className={`hidden md:flex items-center gap-2 px-4 py-1.5 rounded-full border transition-colors duration-250 ${
-          editorTheme === "vs-dark"
-            ? "bg-[#0e0e11]/80 border-slate-800/80"
-            : "bg-[#f3f4f6] border-slate-300/80"
-        }`}>
-          <span className={`text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${
-            editorTheme === "vs-dark"
-              ? "text-indigo-400 bg-indigo-950/40 border-indigo-900/40"
-              : "text-indigo-600 bg-indigo-50 border-indigo-200"
-          }`}>Active Workspace</span>
-          <span className={`text-xs font-mono select-all transition-colors duration-250 ${editorTheme === "vs-dark" ? "text-slate-300" : "text-slate-700"}`}>{activeFile?.path}</span>
-        </div>
-
-        {/* Multiplayer Avatars & Share */}
-        <div className="flex items-center ml-auto mr-4 gap-3">
-          <div className="flex -space-x-2">
-            <img className="w-7 h-7 rounded-full border border-[#1a1a1f] bg-indigo-500 hover:z-10 hover:scale-110 transition-transform cursor-pointer" src="https://api.dicebear.com/7.x/initials/svg?seed=Alex" alt="Alex" title="Alex is editing IDELayout.tsx" />
-            <img className="w-7 h-7 rounded-full border border-[#1a1a1f] bg-emerald-500 hover:z-10 hover:scale-110 transition-transform cursor-pointer" src="https://api.dicebear.com/7.x/initials/svg?seed=Sam" alt="Sam" title="Sam is editing App.css" />
-            <div className="w-7 h-7 rounded-full border-2 border-purple-500/80 bg-purple-950 flex items-center justify-center text-[10px] font-bold text-purple-300 z-10 shadow-[0_0_8px_rgba(168,85,247,0.4)]" title="AI Agent is active">AI</div>
-          </div>
-          {userRole === "owner" && (
-            <button
-              onClick={handleCreateNewRoom}
-              className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all border border-slate-700 cursor-pointer hover:border-slate-600 shadow-sm"
-              title="Create New Workspace Room"
-            >
-              <Plus className="w-3.5 h-3.5 text-indigo-400" />
-              <span>New Room</span>
-            </button>
-          )}
-          <button
-            onClick={() => setIsShareModalOpen(true)}
-            className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1 rounded-lg text-[11px] font-bold transition-all shadow-md shadow-indigo-900/30 hover:shadow-[0_0_10px_rgba(99,102,241,0.4)] cursor-pointer"
-            title="Invite Collaborators"
-          >
-            <UserPlus className="w-3.5 h-3.5" />
-            <span>Share</span>
-          </button>
-        </div>
-
-        {/* Action icons */}
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setEditorTheme(prev => prev === "vs-dark" ? "light" : "vs-dark")}
-            className={`p-1.5 rounded-lg hover-scale cursor-pointer transition-colors duration-250 ${
-              editorTheme === "vs-dark"
-                ? "hover:bg-slate-800/50 text-slate-400 hover:text-white"
-                : "hover:bg-slate-100 text-slate-500 hover:text-slate-800"
-            }`}
-            title="Toggle Light/Dark Theme"
-          >
-            {editorTheme === "vs-dark" ? (
-              <Sun className="w-4 h-4 text-amber-400 transition-transform duration-500 hover:rotate-45" />
-            ) : (
-              <Moon className="w-4 h-4 text-indigo-400 transition-transform duration-500 hover:-rotate-12" />
-            )}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setBottomPanelOpen(prev => !prev)}
-            className={`p-1.5 rounded-lg hover-scale cursor-pointer transition-colors duration-250 ${
-              bottomPanelOpen
-                ? (editorTheme === "vs-dark" ? "bg-[#25252b] text-indigo-400" : "bg-indigo-50 text-indigo-600")
-                : (editorTheme === "vs-dark" ? "text-slate-400 hover:bg-slate-800/50 hover:text-white" : "text-slate-500 hover:bg-slate-100 hover:text-slate-800")
-            }`}
-            title="Toggle Bottom Console Panel"
-          >
-            <TerminalSquare className="w-4 h-4" />
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setRightSidebarOpen(prev => !prev)}
-            className={`p-1.5 rounded-lg hover-scale cursor-pointer transition-colors duration-250 ${
-              rightSidebarOpen
-                ? (editorTheme === "vs-dark" ? "bg-purple-950/50 text-purple-400 shadow-[0_0_12px_rgba(168,85,247,0.25)] border border-purple-500/30" : "bg-purple-50 text-purple-600 border border-purple-200")
-                : (editorTheme === "vs-dark" ? "text-slate-400 hover:bg-slate-800/50 hover:text-white" : "text-slate-500 hover:bg-slate-100 hover:text-slate-800")
-            }`}
-            title="Toggle AI Chat Panel"
-          >
-            <Sparkles className="w-4 h-4" />
-          </button>
-        </div>
-      </header>
-
-      {/* Main Workspace Body */}
+      {/* 2. Main Workspace Body */}
       <div className={`flex flex-1 w-full overflow-hidden relative ${sidebarPosition === "right" ? "flex-row-reverse" : ""}`}>
+        {/* Activity Bar */}
+        <ActivityBar
+          editorTheme={editorTheme}
+          leftSidebarOpen={leftSidebarOpen}
+          setLeftSidebarOpen={setLeftSidebarOpen}
+          activeLeftTab={activeLeftTab}
+          setActiveLeftTab={setActiveLeftTab}
+          isCallActive={isCallActive}
+          setIsCallActive={setIsCallActive}
+          isCallPanelOpen={isCallPanelOpen}
+          setIsCallPanelOpen={setIsCallPanelOpen}
+          rightSidebarOpen={rightSidebarOpen}
+          setRightSidebarOpen={setRightSidebarOpen}
+          isAccountMenuOpen={isAccountMenuOpen}
+          setIsAccountMenuOpen={setIsAccountMenuOpen}
+          isSignedIn={isSignedIn}
+          setIsSignedIn={setIsSignedIn}
+          showSettings={showSettings}
+          setShowSettings={setShowSettings}
+        />
 
-        {/* 1. Activity Bar (Far Left) */}
-        <div className={`w-13 flex flex-col justify-between items-center py-3 z-20 shrink-0 border-r transition-colors duration-250 ${
-          editorTheme === "vs-dark"
-            ? "bg-[#0d0d10] border-[#25252b] text-slate-400"
-            : "bg-[#f9fafb] border-[#e5e7eb] text-slate-500"
-        }`}>
-          <div className="flex flex-col gap-2.5 w-full items-center">
-            {/* Explorer Toggle */}
-            <button
-              onClick={() => {
-                if (leftSidebarOpen && activeLeftTab === "explorer") {
-                  setLeftSidebarOpen(false);
-                } else {
-                  setLeftSidebarOpen(true);
-                  setActiveLeftTab("explorer");
-                }
-              }}
-              className={`p-2.5 rounded-xl transition-all duration-300 relative hover-scale group cursor-pointer ${
-                leftSidebarOpen && activeLeftTab === "explorer"
-                  ? (editorTheme === "vs-dark" ? "text-indigo-400 bg-[#1a1a24] shadow-inner" : "text-indigo-600 bg-indigo-50 shadow-sm")
-                  : (editorTheme === "vs-dark" ? "hover:text-slate-200 hover:bg-slate-900/60" : "hover:text-slate-800 hover:bg-slate-100")
-              }`}
-              title="File Explorer"
-            >
-              <Folder className="w-5.5 h-5.5" />
-              {leftSidebarOpen && activeLeftTab === "explorer" && (
-                <span className="absolute left-0 top-1/4 w-[3px] h-1/2 bg-indigo-500 rounded-r shadow-[0_0_8px_#6366f1]"></span>
-              )}
-            </button>
+        {/* Left Collapsible Sidebar */}
+        <LeftSidebar
+          editorTheme={editorTheme}
+          leftSidebarOpen={leftSidebarOpen}
+          leftSidebarWidth={leftSidebarWidth}
+          isResizingLeft={isResizingLeft}
+          startResizingLeft={startResizingLeft}
+          activeLeftTab={activeLeftTab}
+          isLocalProject={isLocalProject}
+          localDirName={localDirName}
+          handleCreateFile={handleCreateFile}
+          explorerExpanded={explorerExpanded}
+          setExplorerExpanded={setExplorerExpanded}
+          recentFiles={recentFiles}
+          files={files}
+          activeFilePath={activeFilePath}
+          handleOpenFile={handleOpenFile}
+          handleDeleteFile={handleDeleteFile}
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+          replaceQuery={replaceQuery}
+          setReplaceQuery={setReplaceQuery}
+          isReplaceExpanded={isReplaceExpanded}
+          setIsReplaceExpanded={setIsReplaceExpanded}
+          groupedResults={groupedResults}
+          handleReplaceAll={handleReplaceAll}
+          handleReplaceSingle={handleReplaceSingle}
+          handleResultClick={handleResultClick}
+          isSourceControlExpanded={isSourceControlExpanded}
+          setIsSourceControlExpanded={setIsSourceControlExpanded}
+          isGraphExpanded={isGraphExpanded}
+          setIsGraphExpanded={setIsGraphExpanded}
+          isTerminalExpanded={isTerminalExpanded}
+          setIsTerminalExpanded={setIsTerminalExpanded}
+          gitTerminalHistory={gitTerminalHistory}
+          gitTerminalInput={gitTerminalInput}
+          setGitTerminalInput={setGitTerminalInput}
+          handleGitTerminalSubmit={handleGitTerminalSubmit}
+          workspaceId={workspaceId}
+          roomsHistory={roomsHistory}
+          handleCreateNewRoom={handleCreateNewRoom}
+          handleSwitchRoom={handleSwitchRoom}
+          handleRenameRoom={handleRenameRoom}
+          updateRoomsHistory={updateRoomsHistory}
+        />
 
-            {/* Search Toggle */}
-            <button
-              onClick={() => {
-                if (leftSidebarOpen && activeLeftTab === "search") {
-                  setLeftSidebarOpen(false);
-                } else {
-                  setLeftSidebarOpen(true);
-                  setActiveLeftTab("search");
-                }
-              }}
-              className={`p-2.5 rounded-xl transition-all duration-300 relative hover-scale group cursor-pointer ${
-                leftSidebarOpen && activeLeftTab === "search"
-                  ? (editorTheme === "vs-dark" ? "text-indigo-400 bg-[#1a1a24] shadow-inner" : "text-indigo-600 bg-indigo-50 shadow-sm")
-                  : (editorTheme === "vs-dark" ? "hover:text-slate-200 hover:bg-slate-900/60" : "hover:text-slate-800 hover:bg-slate-100")
-              }`}
-              title="Search"
-            >
-              <Search className="w-5.5 h-5.5" />
-              {leftSidebarOpen && activeLeftTab === "search" && (
-                <span className="absolute left-0 top-1/4 w-[3px] h-1/2 bg-indigo-500 rounded-r shadow-[0_0_8px_#6366f1]"></span>
-              )}
-            </button>
-
-            {/* Source Control Toggle */}
-            <button
-              onClick={() => {
-                if (leftSidebarOpen && activeLeftTab === "git") {
-                  setLeftSidebarOpen(false);
-                } else {
-                  setLeftSidebarOpen(true);
-                  setActiveLeftTab("git");
-                }
-              }}
-              className={`p-2.5 rounded-xl transition-all duration-300 relative hover-scale group cursor-pointer ${
-                leftSidebarOpen && activeLeftTab === "git"
-                  ? (editorTheme === "vs-dark" ? "text-indigo-400 bg-[#1a1a24] shadow-inner" : "text-indigo-600 bg-indigo-50 shadow-sm")
-                  : (editorTheme === "vs-dark" ? "hover:text-slate-200 hover:bg-slate-900/60" : "hover:text-slate-800 hover:bg-slate-100")
-              }`}
-              title="Source Control"
-            >
-              <GitBranch className="w-5.5 h-5.5" />
-              {leftSidebarOpen && activeLeftTab === "git" && (
-                <span className="absolute left-0 top-1/4 w-[3px] h-1/2 bg-indigo-500 rounded-r shadow-[0_0_8px_#6366f1]"></span>
-              )}
-            </button>
-
-            {/* Rooms/Workspaces Toggle */}
-            <button
-              onClick={() => {
-                if (leftSidebarOpen && activeLeftTab === "rooms") {
-                  setLeftSidebarOpen(false);
-                } else {
-                  setLeftSidebarOpen(true);
-                  setActiveLeftTab("rooms");
-                }
-              }}
-              className={`p-2.5 rounded-xl transition-all duration-300 relative hover-scale group cursor-pointer ${
-                leftSidebarOpen && activeLeftTab === "rooms"
-                  ? (editorTheme === "vs-dark" ? "text-indigo-400 bg-[#1a1a24] shadow-inner" : "text-indigo-600 bg-indigo-50 shadow-sm")
-                  : (editorTheme === "vs-dark" ? "hover:text-slate-200 hover:bg-slate-900/60" : "hover:text-slate-800 hover:bg-slate-100")
-              }`}
-              title="Rooms & Workspaces"
-            >
-              <Layers className="w-5.5 h-5.5" />
-              {leftSidebarOpen && activeLeftTab === "rooms" && (
-                <span className="absolute left-0 top-1/4 w-[3px] h-1/2 bg-indigo-500 rounded-r shadow-[0_0_8px_#6366f1]"></span>
-              )}
-            </button>
-
-            {/* Collaborative Call Toggle */}
-            <button
-              onClick={() => {
-                if (!isCallActive) {
-                  setIsCallActive(true);
-                  setIsCallPanelOpen(true);
-                } else {
-                  setIsCallPanelOpen(!isCallPanelOpen);
-                }
-              }}
-              className={`p-2.5 rounded-xl transition-all duration-300 relative hover-scale group cursor-pointer ${
-                isCallActive && isCallPanelOpen
-                  ? "text-emerald-400 bg-emerald-950/20 shadow-[0_0_10px_rgba(16,185,129,0.2)]"
-                  : isCallActive
-                  ? "text-emerald-500 hover:text-emerald-400 hover:bg-slate-900/60 animate-pulse"
-                  : "hover:text-slate-200 hover:bg-slate-900/60 text-slate-400"
-              }`}
-              title="Collaborative Call"
-            >
-              <PhoneCall className="w-5.5 h-5.5" />
-              {isCallActive && isCallPanelOpen && (
-                <span className="absolute left-0 top-1/4 w-[3px] h-1/2 bg-emerald-500 rounded-r shadow-[0_0_8px_#10b981]"></span>
-              )}
-            </button>
-
-            <hr className="w-8 border-slate-800/80 my-1.5" />
-
-            {/* AI Assistant Sidebar Toggle (Activates right sidebar with pulse glow) */}
-            <button
-              onClick={() => setRightSidebarOpen(prev => !prev)}
-              className={`p-2.5 rounded-xl transition-all duration-300 relative cursor-pointer ${
-                rightSidebarOpen
-                  ? (editorTheme === "vs-dark"
-                      ? "text-purple-400 bg-purple-950/20 border border-purple-800/40 shadow-[0_0_15px_rgba(168,85,247,0.25)] animate-pulse-glow-purple"
-                      : "text-purple-600 bg-purple-50 border border-purple-300 shadow-[0_0_15px_rgba(168,85,247,0.25)] animate-pulse-glow-purple")
-                  : (editorTheme === "vs-dark" ? "hover:text-purple-400 hover:bg-purple-950/10" : "hover:text-purple-600 hover:bg-purple-50")
-              }`}
-              title="Toggle AI Copilot"
-            >
-              <Sparkles className={`w-5.5 h-5.5 ${rightSidebarOpen ? "text-purple-400" : "text-slate-400"}`} />
-            </button>
-          </div>
-
-          <div className="flex flex-col gap-2 w-full items-center relative">
-            <button
-              onClick={() => setIsAccountMenuOpen(prev => !prev)}
-              className={`p-2.5 rounded-xl transition-all cursor-pointer hover-scale ${
-                isAccountMenuOpen
-                  ? (editorTheme === "vs-dark" ? "text-indigo-400 bg-[#1a1a24] shadow-inner" : "text-indigo-600 bg-indigo-50 shadow-sm")
-                  : (editorTheme === "vs-dark" ? "hover:text-slate-200 hover:bg-slate-900/60" : "hover:text-slate-800 hover:bg-slate-100")
-              }`}
-              title="Accounts"
-            >
-              <User className="w-5.5 h-5.5" />
-            </button>
-
-            {/* Account Context Menu */}
-            {isAccountMenuOpen && (
-              <div className={`absolute bottom-12 left-14 w-64 rounded-xl shadow-2xl border flex flex-col overflow-hidden animate-slide-up z-50 ${
-                editorTheme === "vs-dark"
-                  ? "bg-[#1e1e24] border-slate-700/60 text-slate-300"
-                  : "bg-white border-slate-200 text-slate-700"
-              }`}>
-                {!isSignedIn ? (
-                  <>
-                    <div className={`px-4 py-3 border-b text-xs font-semibold ${editorTheme === "vs-dark" ? "border-slate-800/80 text-slate-400" : "border-slate-100 text-slate-500"}`}>
-                      Sign in to sync settings and use AI Copilot
-                    </div>
-                    <button
-                      onClick={() => {
-                        setIsSignedIn(true);
-                        setIsAccountMenuOpen(false);
-                        alert("Redirecting to GitHub OAuth...");
-                      }}
-                      className={`flex items-center gap-2.5 px-4 py-3 text-sm transition-colors cursor-pointer text-left ${
-                        editorTheme === "vs-dark" ? "hover:bg-slate-800/50 hover:text-white" : "hover:bg-slate-50 hover:text-indigo-600"
-                      }`}
-                    >
-                      <GitBranch className="w-4 h-4" />
-                      <span>Sign in with GitHub</span>
-                    </button>
-                    <button
-                      onClick={() => {
-                        setIsSignedIn(true);
-                        setIsAccountMenuOpen(false);
-                      }}
-                      className={`flex items-center gap-2.5 px-4 py-3 text-sm transition-colors cursor-pointer text-left ${
-                        editorTheme === "vs-dark" ? "hover:bg-slate-800/50 hover:text-white" : "hover:bg-slate-50 hover:text-indigo-600"
-                      }`}
-                    >
-                      <LogIn className="w-4 h-4" />
-                      <span>Sign in with Email</span>
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <div className={`px-4 py-3 border-b text-sm font-semibold flex items-center gap-2 ${editorTheme === "vs-dark" ? "border-slate-800/80 text-white" : "border-slate-100 text-slate-800"}`}>
-                      <img src="https://api.dicebear.com/7.x/initials/svg?seed=Owner" className="w-6 h-6 rounded-full" alt="avatar" />
-                      <span>owner@antigravity.studio</span>
-                    </div>
-                    <button
-                      onClick={() => {
-                        setIsAccountMenuOpen(false);
-                        alert("Redirecting to Account Management portal...");
-                      }}
-                      className={`flex items-center gap-2.5 px-4 py-3 text-sm transition-colors cursor-pointer text-left ${
-                        editorTheme === "vs-dark" ? "hover:bg-slate-800/50 hover:text-white" : "hover:bg-slate-50 hover:text-indigo-600"
-                      }`}
-                    >
-                      <Settings className="w-4 h-4" />
-                      <span>Manage Account</span>
-                    </button>
-                    <button
-                      onClick={() => {
-                        setIsSignedIn(false);
-                        setIsAccountMenuOpen(false);
-                      }}
-                      className={`flex items-center gap-2.5 px-4 py-3 text-sm transition-colors cursor-pointer text-left ${
-                        editorTheme === "vs-dark" ? "hover:bg-slate-800/50 text-red-400 hover:text-red-300" : "hover:bg-slate-50 text-red-500 hover:text-red-600"
-                      }`}
-                    >
-                      <LogOut className="w-4 h-4" />
-                      <span>Sign Out</span>
-                    </button>
-                  </>
-                )}
-              </div>
-            )}
-
-            <button
-              onClick={() => setShowSettings(true)}
-              className={`p-2.5 rounded-xl transition-all cursor-pointer hover-scale ${
-                showSettings
-                  ? (editorTheme === "vs-dark" ? "text-indigo-400 bg-[#1a1a24] shadow-inner" : "text-indigo-600 bg-indigo-50 shadow-sm")
-                  : (editorTheme === "vs-dark" ? "hover:text-slate-200 hover:bg-slate-900/60" : "hover:text-slate-800 hover:bg-slate-100")
-              }`}
-              title="Settings"
-            >
-              <Settings className="w-5.5 h-5.5" />
-            </button>
-          </div>
-        </div>
-
-        {/* 2. Left Collapsible Sidebar */}
-        <div
-          className={`flex flex-col overflow-hidden z-10 gpu-layer border-r transition-colors duration-250 ${
-            editorTheme === "vs-dark"
-              ? "bg-[#16161a] border-[#25252b]"
-              : "bg-[#f3f4f6] border-[#e5e7eb]"
-          }`}
-          style={{
-            width: leftSidebarOpen ? `${leftSidebarWidth}px` : 0,
-            transition: isResizingLeft ? 'none' : 'width 300ms ease-out'
-          }}
-        >
-          {activeLeftTab === "explorer" && (
-            <div className="flex flex-col h-full text-xs">
-              <div className={`p-3.5 flex items-center justify-between font-semibold tracking-wider text-[10px] uppercase border-b transition-colors duration-250 ${
-                editorTheme === "vs-dark" ? "border-[#25252b] text-slate-400" : "border-[#e5e7eb] text-slate-500"
-              }`}>
-                <div className="flex items-center gap-2">
-                  <span>Explorer: {isLocalProject ? (localDirName || "Local Project") : "Project"}</span>
-                  {isLocalProject && (
-                    <span className="bg-emerald-500/15 text-emerald-400 px-1.5 py-0.5 rounded text-[8px] font-bold border border-emerald-500/30 normal-case tracking-normal">
-                      Local
-                    </span>
-                  )}
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <button 
-                    onClick={handleCreateFile}
-                    className={`p-1 rounded cursor-pointer transition-colors ${editorTheme === "vs-dark" ? "hover:bg-slate-800/60 text-slate-400 hover:text-white" : "hover:bg-slate-200 text-slate-600 hover:text-slate-900"}`} 
-                    title="New File"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                  </button>
-                  <button className={`p-1 rounded cursor-pointer transition-colors ${editorTheme === "vs-dark" ? "hover:bg-slate-800/60 text-slate-400 hover:text-white" : "hover:bg-slate-200 text-slate-600 hover:text-slate-900"}`} title="Refresh">
-                    <RefreshCw className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Explorer File Tree */}
-              <div className="flex-1 overflow-y-auto p-2 scrollbar-thin">
-                {/* Recent Files Section */}
-                <div className="mb-4">
-                  <button
-                    onClick={() => setExplorerExpanded(prev => ({ ...prev, recent: !prev.recent }))}
-                    className={`flex items-center gap-1.5 w-full py-2 px-2 rounded-lg text-left font-semibold transition-colors cursor-pointer ${
-                      editorTheme === "vs-dark" ? "hover:bg-slate-800/30 text-slate-300" : "hover:bg-slate-200/50 text-slate-700"
-                    }`}
-                  >
-                    <ChevronDown className={`w-3.5 h-3.5 text-slate-500 transition-transform duration-250 ${!explorerExpanded.recent ? "-rotate-90" : ""}`} />
-                    <History className="w-4 h-4 text-indigo-400 shrink-0" />
-                    <span>Recent Files</span>
-                  </button>
-
-                  {explorerExpanded.recent && (
-                    <div className={`pl-4 mt-0.5 border-l ml-4.5 flex flex-col gap-0.5 ${editorTheme === "vs-dark" ? "border-slate-800/60" : "border-slate-200"}`}>
-                      {recentFiles.filter(fp => files[fp]).length === 0 ? (
-                        <div className="py-2 px-2.5 text-slate-500 italic select-none">No recent files</div>
-                      ) : (
-                        recentFiles.filter(fp => files[fp]).map((filePath) => {
-                          const file = files[filePath];
-                          return (
-                            <div key={filePath} className="group flex flex-col w-full rounded-lg transition-all duration-200">
-                              <button
-                                onClick={() => handleOpenFile(filePath)}
-                                className={`flex flex-col items-start gap-0.5 w-full py-1.5 px-2.5 rounded-lg text-left cursor-pointer transition-all duration-200 ${
-                                  activeFilePath === filePath
-                                    ? (editorTheme === "vs-dark"
-                                        ? "explorer-item-active text-white font-medium shadow-md shadow-indigo-950/20"
-                                        : "bg-indigo-100/60 border-l-2 border-indigo-600 text-indigo-800 font-medium shadow-sm")
-                                    : (editorTheme === "vs-dark" ? "hover:bg-slate-800/30 text-slate-400 hover:text-slate-200" : "hover:bg-slate-200/50 text-slate-600 hover:text-slate-900")
-                                }`}
-                              >
-                                <div className="flex items-center gap-2 w-full">
-                                  {getFileIcon(file.name)}
-                                  <span className="font-mono truncate select-none font-medium">{file.name}</span>
-                                </div>
-                                <span className={`text-[9px] font-mono pl-6 truncate w-full ${editorTheme === "vs-dark" ? "text-slate-500" : "text-slate-400"}`}>
-                                  {file.path}
-                                </span>
-                              </button>
-                            </div>
-                          );
-                        })
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {/* Root Directory */}
-                <div>
-                  <button
-                    onClick={() => setExplorerExpanded(prev => ({ ...prev, root: !prev.root }))}
-                    className={`flex items-center gap-1.5 w-full py-2 px-2 rounded-lg text-left font-semibold transition-colors cursor-pointer ${
-                      editorTheme === "vs-dark" ? "hover:bg-slate-800/30 text-slate-300" : "hover:bg-slate-200/50 text-slate-700"
-                    }`}
-                  >
-                    <ChevronDown className={`w-3.5 h-3.5 text-slate-500 transition-transform duration-250 ${!explorerExpanded.root ? "-rotate-90" : ""}`} />
-                    <Folder className="w-4.5 h-4.5 text-amber-500 fill-amber-500/10 shrink-0" />
-                    <span>{isLocalProject ? "Local Files" : "Workspace Files"}</span>
-                  </button>
-
-                  {explorerExpanded.root && (
-                    <div className={`pl-4 mt-0.5 border-l ml-4.5 flex flex-col gap-0.5 ${editorTheme === "vs-dark" ? "border-slate-800/60" : "border-slate-200"}`}>
-                      {Object.keys(files).map((filePath) => {
-                        const file = files[filePath];
-                        return (
-                          <div key={filePath} className="group flex items-center justify-between w-full rounded-lg transition-all duration-200 relative">
-                            <button
-                              onClick={() => handleOpenFile(filePath)}
-                              className={`flex items-center gap-2 flex-1 py-1.5 px-2.5 rounded-lg text-left cursor-pointer transition-all duration-200 ${
-                                activeFilePath === filePath
-                                  ? (editorTheme === "vs-dark"
-                                      ? "explorer-item-active text-white font-medium shadow-md shadow-indigo-950/20"
-                                      : "bg-indigo-100/60 border-l-2 border-indigo-600 text-indigo-800 font-medium shadow-sm")
-                                  : (editorTheme === "vs-dark" ? "hover:bg-slate-800/30 text-slate-400 hover:text-slate-200" : "hover:bg-slate-200/50 text-slate-600 hover:text-slate-900")
-                              }`}
-                            >
-                              {getFileIcon(file.name)}
-                              <span className="font-mono truncate select-none">{file.name}</span>
-                            </button>
-                            {/* Delete File Button on hover */}
-                            <button
-                              onClick={(e) => handleDeleteFile(e, filePath)}
-                              className={`opacity-0 group-hover:opacity-100 absolute right-2 p-1 rounded transition-colors z-20 cursor-pointer ${
-                                editorTheme === "vs-dark"
-                                  ? "hover:bg-slate-800 text-slate-400 hover:text-red-400"
-                                  : "hover:bg-slate-200 text-slate-500 hover:text-red-600"
-                              }`}
-                              title={`Delete ${file.name}`}
-                            >
-                              <X className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {activeLeftTab === "search" && (
-            <div className="flex flex-col h-full text-xs">
-              <div className={`p-3.5 flex items-center justify-between font-semibold tracking-wider text-[10px] uppercase border-b transition-colors duration-250 ${
-                editorTheme === "vs-dark" ? "border-[#25252b] text-slate-400" : "border-[#e5e7eb] text-slate-500"
-              }`}>
-                <span>Search & Replace</span>
-              </div>
-
-              <div className="p-3 flex flex-col gap-2 border-b border-transparent">
-                {/* Search & Replace Inputs */}
-                <div className="flex items-start gap-1.5">
-                  <button
-                    onClick={() => setIsReplaceExpanded(!isReplaceExpanded)}
-                    className={`mt-1.5 p-0.5 rounded transition-colors cursor-pointer ${editorTheme === "vs-dark" ? "hover:bg-slate-800 text-slate-400" : "hover:bg-slate-200 text-slate-500"}`}
-                  >
-                    <ChevronRight className={`w-4 h-4 transition-transform duration-200 ${isReplaceExpanded ? "rotate-90" : ""}`} />
-                  </button>
-                  <div className="flex-1 flex flex-col gap-2">
-                    <input
-                      type="text"
-                      placeholder="Search"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className={`w-full rounded-md px-2.5 py-1.5 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all font-sans text-xs outline-none border ${
-                        editorTheme === "vs-dark"
-                          ? "bg-[#1a1a24] border-slate-700/60 text-white placeholder-slate-500"
-                          : "bg-white border-slate-300 text-slate-800 placeholder-slate-400"
-                      }`}
-                    />
-                    {isReplaceExpanded && (
-                      <div className="flex items-center gap-1.5 relative">
-                        <input
-                          type="text"
-                          placeholder="Replace"
-                          value={replaceQuery}
-                          onChange={(e) => setReplaceQuery(e.target.value)}
-                          className={`w-full rounded-md px-2.5 py-1.5 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all font-sans text-xs outline-none border pr-8 ${
-                            editorTheme === "vs-dark"
-                              ? "bg-[#1a1a24] border-slate-700/60 text-white placeholder-slate-500"
-                              : "bg-white border-slate-300 text-slate-800 placeholder-slate-400"
-                          }`}
-                        />
-                        <button
-                          onClick={handleReplaceAll}
-                          disabled={!searchQuery}
-                          className={`absolute right-1 top-1 p-1 rounded cursor-pointer transition-colors ${
-                            editorTheme === "vs-dark"
-                              ? "hover:bg-slate-700 text-slate-400 hover:text-white"
-                              : "hover:bg-slate-200 text-slate-500 hover:text-slate-800"
-                          } disabled:opacity-30 disabled:cursor-not-allowed`}
-                          title="Replace All"
-                        >
-                          <RefreshCw className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Search Results */}
-              <div className="flex-1 overflow-y-auto px-2 pb-4 scrollbar-thin">
-                {!searchQuery ? (
-                  <div className={`p-4 text-center mt-4 text-[11px] ${editorTheme === "vs-dark" ? "text-slate-500" : "text-slate-400"}`}>
-                    Type to search for text across all workspace files.
-                  </div>
-                ) : Object.keys(groupedResults).length === 0 ? (
-                  <div className={`p-4 text-center mt-4 text-[11px] ${editorTheme === "vs-dark" ? "text-slate-500" : "text-slate-400"}`}>
-                    No results found.
-                  </div>
-                ) : (
-                  <div className="flex flex-col gap-2 mt-2">
-                    {Object.entries(groupedResults).map(([path, results]) => (
-                      <div key={path} className="flex flex-col mb-1">
-                        {/* File Header */}
-                        <div className={`flex items-center gap-1.5 w-full py-1.5 px-2 rounded font-semibold text-xs transition-colors ${
-                          editorTheme === "vs-dark" ? "text-slate-300 hover:bg-slate-800/30" : "text-slate-700 hover:bg-slate-200/50"
-                        }`}>
-                          <ChevronDown className="w-3.5 h-3.5 text-slate-500" />
-                          {getFileIcon(path)}
-                          <span className="truncate">{path.split('/').pop()}</span>
-                          <span className={`ml-auto text-[10px] rounded-full px-1.5 ${editorTheme === "vs-dark" ? "bg-slate-800 text-slate-400" : "bg-slate-200 text-slate-500"}`}>{results.length}</span>
-                        </div>
-                        {/* Result Lines */}
-                        <div className="flex flex-col">
-                          {results.map((res, i) => {
-                            if (res.isFileNameMatch) {
-                              return (
-                                <button
-                                  key={i}
-                                  onClick={() => handleResultClick(path, res.lineIndex, true)}
-                                  className={`flex items-center justify-between pl-8 pr-2 py-1 transition-colors w-full text-left cursor-pointer ${
-                                    editorTheme === "vs-dark" ? "hover:bg-slate-800/50" : "hover:bg-slate-200/50"
-                                  }`}
-                                >
-                                  <span className={`text-[10px] flex-1 truncate italic ${editorTheme === "vs-dark" ? "text-slate-500" : "text-slate-400"}`}>
-                                    File name matches: {res.lineContent.replace('File: ', '')}
-                                  </span>
-                                </button>
-                              );
-                            }
-
-                            const lowerLine = res.lineContent.toLowerCase();
-                            const lowerQuery = searchQuery.toLowerCase();
-                            const matchIndex = lowerLine.indexOf(lowerQuery);
-                            const prefix = res.lineContent.substring(0, matchIndex);
-                            const match = res.lineContent.substring(matchIndex, matchIndex + searchQuery.length);
-                            const suffix = res.lineContent.substring(matchIndex + searchQuery.length);
-
-                            return (
-                              <div key={i} className={`flex items-center justify-between pl-8 pr-2 py-1 transition-colors ${
-                                editorTheme === "vs-dark" ? "hover:bg-slate-800/50" : "hover:bg-slate-200/50"
-                              }`}>
-                                <button
-                                  onClick={() => handleResultClick(path, res.lineIndex)}
-                                  className="flex items-start gap-2 text-left cursor-pointer flex-1 min-w-0"
-                                  title={res.lineContent}
-                                >
-                                  <div className={`font-mono text-[10px] truncate leading-relaxed ${editorTheme === "vs-dark" ? "text-slate-400" : "text-slate-600"}`}>
-                                    {prefix}
-                                    <span className={`rounded-[2px] ${editorTheme === "vs-dark" ? "bg-indigo-500/50 text-indigo-50 font-bold" : "bg-indigo-200 text-indigo-900 font-bold"}`}>{match}</span>
-                                    {suffix}
-                                  </div>
-                                </button>
-                                {isReplaceExpanded && (
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleReplaceSingle(path, res.lineIndex);
-                                    }}
-                                    className={`p-1 rounded cursor-pointer transition-colors ml-1 shrink-0 ${
-                                      editorTheme === "vs-dark"
-                                        ? "bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white"
-                                        : "bg-slate-200 text-slate-600 hover:bg-slate-300 hover:text-slate-900"
-                                    }`}
-                                    title="Replace this match"
-                                  >
-                                    <RefreshCw className="w-3 h-3" />
-                                  </button>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {activeLeftTab === "git" && (
-            <div className="flex flex-col h-full text-xs">
-              
-              {/* TOP PANE: Source Control */}
-              <div className={`flex-1 flex flex-col min-h-0 border-b ${
-                editorTheme === "vs-dark" ? "border-slate-800" : "border-slate-200"
-              }`}>
-                {/* Source Control Accordion Header */}
-                <div 
-                  onClick={() => setIsSourceControlExpanded(!isSourceControlExpanded)}
-                  className={`p-1.5 flex items-center gap-1 font-semibold tracking-wider text-[10px] uppercase transition-colors duration-250 cursor-pointer select-none ${
-                    editorTheme === "vs-dark" ? "text-slate-400 hover:bg-slate-800" : "text-slate-500 hover:bg-slate-200"
-                  }`}
-                >
-                  <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${!isSourceControlExpanded ? "-rotate-90" : ""}`} />
-                  <span className="flex-1">Source Control</span>
-                  <div className="flex gap-1 items-center pr-1" onClick={e => e.stopPropagation()}>
-                    <button className={`p-1 rounded transition-colors ${editorTheme === "vs-dark" ? "hover:bg-slate-700/50" : "hover:bg-slate-200/80"}`} title="Commit"><Check className="w-3.5 h-3.5" /></button>
-                    <button className={`p-1 rounded transition-colors ${editorTheme === "vs-dark" ? "hover:bg-slate-700/50" : "hover:bg-slate-200/80"}`} title="Refresh"><RefreshCw className="w-3.5 h-3.5" /></button>
-                    <button className={`p-1 rounded transition-colors ${editorTheme === "vs-dark" ? "hover:bg-slate-700/50" : "hover:bg-slate-200/80"}`} title="More Actions..."><MoreHorizontal className="w-3.5 h-3.5" /></button>
-                  </div>
-                </div>
-
-                {/* Source Control Content */}
-                {isSourceControlExpanded && (
-                  <div className="flex flex-col flex-1 min-h-0 pt-2">
-                    {/* Message Box */}
-                    <div className="px-3 pb-3">
-                      <div className={`relative rounded border focus-within:ring-1 focus-within:ring-indigo-500 transition-all ${
-                        editorTheme === "vs-dark" ? "bg-[#1a1a24] border-slate-700/60" : "bg-white border-slate-300"
-                      }`}>
-                        <textarea 
-                          placeholder="Message (Enter to commit on 'main')" 
-                          className={`w-full p-2 h-16 text-xs bg-transparent resize-none outline-none ${
-                            editorTheme === "vs-dark" ? "text-white placeholder-slate-500" : "text-slate-800 placeholder-slate-400"
-                          }`}
-                        />
-                      </div>
-                      <button className={`w-full mt-2 rounded py-1.5 font-semibold text-white transition-all shadow shadow-indigo-950/20 cursor-pointer ${
-                        editorTheme === "vs-dark" ? "bg-indigo-600 hover:bg-indigo-500" : "bg-indigo-600 hover:bg-indigo-700"
-                      }`}>
-                        Commit
-                      </button>
-                    </div>
-
-                    {/* Tree */}
-                    <div className="flex-1 overflow-y-auto scrollbar-thin">
-                      {/* Staged Changes */}
-                      <div className="flex flex-col mb-1">
-                        <div className={`flex items-center gap-1 w-full py-1 px-2 font-semibold text-xs transition-colors cursor-pointer select-none ${
-                          editorTheme === "vs-dark" ? "text-slate-300 hover:bg-slate-800/50" : "text-slate-700 hover:bg-slate-200/50"
-                        }`}>
-                          <ChevronDown className="w-3.5 h-3.5" />
-                          <span>Staged Changes</span>
-                          <span className={`ml-auto text-[10px] rounded-full px-1.5 ${editorTheme === "vs-dark" ? "bg-slate-800 text-slate-400" : "bg-slate-200 text-slate-500"}`}>1</span>
-                        </div>
-                        <div className="flex flex-col pl-4">
-                          <div className={`group flex items-center justify-between py-1 px-2 cursor-pointer transition-colors ${
-                            editorTheme === "vs-dark" ? "hover:bg-slate-800/40 text-slate-400" : "hover:bg-slate-200/40 text-slate-600"
-                          }`}>
-                            <div className="flex items-center gap-2 truncate">
-                              {getFileIcon("package.json")}
-                              <span className="truncate">package.json</span>
-                              <span className="text-[10px] opacity-60 truncate">/</span>
-                            </div>
-                            <div className="flex items-center gap-2 shrink-0">
-                              <button className={`opacity-0 group-hover:opacity-100 p-0.5 rounded transition-colors ${editorTheme === "vs-dark" ? "hover:bg-slate-700 text-slate-300" : "hover:bg-slate-300 text-slate-600"}`} title="Unstage Changes"><Minus className="w-3.5 h-3.5" /></button>
-                              <span className="text-amber-500 font-bold text-[10px] w-3 text-center">M</span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Changes */}
-                      <div className="flex flex-col mb-1 mt-2">
-                        <div className={`flex items-center gap-1 w-full py-1 px-2 font-semibold text-xs transition-colors cursor-pointer select-none ${
-                          editorTheme === "vs-dark" ? "text-slate-300 hover:bg-slate-800/50" : "text-slate-700 hover:bg-slate-200/50"
-                        }`}>
-                          <ChevronDown className="w-3.5 h-3.5" />
-                          <span>Changes</span>
-                          <span className={`ml-auto text-[10px] rounded-full px-1.5 ${editorTheme === "vs-dark" ? "bg-slate-800 text-slate-400" : "bg-slate-200 text-slate-500"}`}>2</span>
-                        </div>
-                        <div className="flex flex-col pl-4">
-                          <div className={`group flex items-center justify-between py-1 px-2 cursor-pointer transition-colors ${
-                            editorTheme === "vs-dark" ? "hover:bg-slate-800/40 text-slate-400" : "hover:bg-slate-200/40 text-slate-600"
-                          }`}>
-                            <div className="flex items-center gap-2 truncate">
-                              {getFileIcon("src/App.tsx")}
-                              <span className="truncate">App.tsx</span>
-                              <span className="text-[10px] opacity-60 truncate">src</span>
-                            </div>
-                            <div className="flex items-center gap-2 shrink-0">
-                              <button className={`opacity-0 group-hover:opacity-100 p-0.5 rounded transition-colors ${editorTheme === "vs-dark" ? "hover:bg-slate-700 text-slate-300" : "hover:bg-slate-300 text-slate-600"}`} title="Stage Changes"><Plus className="w-3.5 h-3.5" /></button>
-                              <span className="text-amber-500 font-bold text-[10px] w-3 text-center">M</span>
-                            </div>
-                          </div>
-                          <div className={`group flex items-center justify-between py-1 px-2 cursor-pointer transition-colors ${
-                            editorTheme === "vs-dark" ? "hover:bg-slate-800/40 text-slate-400" : "hover:bg-slate-200/40 text-slate-600"
-                          }`}>
-                            <div className="flex items-center gap-2 truncate">
-                              {getFileIcon("src/index.css")}
-                              <span className="truncate">index.css</span>
-                              <span className="text-[10px] opacity-60 truncate">src</span>
-                            </div>
-                            <div className="flex items-center gap-2 shrink-0">
-                              <button className={`opacity-0 group-hover:opacity-100 p-0.5 rounded transition-colors ${editorTheme === "vs-dark" ? "hover:bg-slate-700 text-slate-300" : "hover:bg-slate-300 text-slate-600"}`} title="Stage Changes"><Plus className="w-3.5 h-3.5" /></button>
-                              <span className="text-green-500 font-bold text-[10px] w-3 text-center">U</span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Graph Accordion Header */}
-                <div 
-                  onClick={() => setIsGraphExpanded(!isGraphExpanded)}
-                  className={`p-1.5 flex items-center gap-1 font-semibold tracking-wider text-[10px] uppercase transition-colors duration-250 cursor-pointer select-none border-t ${
-                    editorTheme === "vs-dark" ? "border-slate-800 text-slate-400 hover:bg-slate-800" : "border-slate-200 text-slate-500 hover:bg-slate-200"
-                  }`}
-                >
-                  <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${!isGraphExpanded ? "-rotate-90" : ""}`} />
-                  <span className="flex-1">Graph</span>
-                  <div className="flex gap-1 items-center pr-1" onClick={e => e.stopPropagation()}>
-                    <button className={`p-1 rounded transition-colors flex items-center gap-1 ${editorTheme === "vs-dark" ? "hover:bg-slate-700/50 text-indigo-400" : "hover:bg-slate-200/80 text-indigo-600"}`} title="Auto/Branch"><GitMerge className="w-3.5 h-3.5" /> <span className="normal-case font-normal text-[9px] mr-1">Auto</span></button>
-                    <button className={`p-1 rounded transition-colors ${editorTheme === "vs-dark" ? "hover:bg-slate-700/50" : "hover:bg-slate-200/80"}`} title="Fetch"><Target className="w-3.5 h-3.5" /></button>
-                    <button className={`p-1 rounded transition-colors ${editorTheme === "vs-dark" ? "hover:bg-slate-700/50" : "hover:bg-slate-200/80"}`} title="Pull"><Download className="w-3.5 h-3.5" /></button>
-                    <button className={`p-1 rounded transition-colors ${editorTheme === "vs-dark" ? "hover:bg-slate-700/50" : "hover:bg-slate-200/80"}`} title="Push"><Upload className="w-3.5 h-3.5" /></button>
-                    <button className={`p-1 rounded transition-colors ${editorTheme === "vs-dark" ? "hover:bg-slate-700/50" : "hover:bg-slate-200/80"}`} title="Refresh"><RefreshCw className="w-3.5 h-3.5" /></button>
-                    <button className={`p-1 rounded transition-colors ${editorTheme === "vs-dark" ? "hover:bg-slate-700/50" : "hover:bg-slate-200/80"}`} title="More Actions..."><MoreHorizontal className="w-3.5 h-3.5" /></button>
-                  </div>
-                </div>
-
-                {/* Graph Content */}
-                {isGraphExpanded && (
-                  <div className={`flex flex-col flex-1 min-h-0 p-3 overflow-y-auto scrollbar-thin ${
-                    editorTheme === "vs-dark" ? "bg-[#18181c]" : "bg-[#f8f9fa]"
-                  }`}>
-                    {/* Commit Node 1 */}
-                    <div className="flex items-start gap-2 mb-2">
-                      <div className="mt-1"><Circle className="w-3 h-3 text-indigo-500 fill-transparent" /></div>
-                      <div className="flex flex-col flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className={`text-[11px] font-medium truncate flex-1 ${editorTheme === "vs-dark" ? "text-slate-200" : "text-slate-800"}`}>feat(search): complete search features</span>
-                          <span className={`text-[9px] px-1.5 py-0.5 rounded-full flex items-center gap-1 shrink-0 ${editorTheme === "vs-dark" ? "bg-indigo-500/20 text-indigo-400" : "bg-indigo-100 text-indigo-600"}`}><Target className="w-2.5 h-2.5"/> main</span>
-                          <Cloud className={`w-3 h-3 shrink-0 ${editorTheme === "vs-dark" ? "text-purple-400" : "text-purple-600"}`} />
-                        </div>
-                      </div>
-                    </div>
-                    
-                    {/* Commit Node 2 */}
-                    <div className="flex items-start gap-2 h-6">
-                      <div className="w-3 flex flex-col items-center h-full relative">
-                        <div className="w-[1.5px] h-3 bg-indigo-500"></div>
-                        <Circle className="w-2.5 h-2.5 text-indigo-500 fill-indigo-500" />
-                        <div className="w-[1.5px] h-full bg-indigo-500"></div>
-                        
-                        {/* Branching line curve */}
-                        <svg className="absolute top-3 left-1.5 w-4 h-full" preserveAspectRatio="none">
-                          <path d="M0,0 C3,3 8,0 8,10" stroke="#f59e0b" strokeWidth="1.5" fill="none" />
-                        </svg>
-                      </div>
-                      <div className={`text-[10px] leading-3 truncate w-full ${editorTheme === "vs-dark" ? "text-slate-400" : "text-slate-500"}`}>
-                        Merge branch 'main' of https://github.com...
-                      </div>
-                    </div>
-
-                    {/* Commit Node 3 (branched) */}
-                    <div className="flex items-start gap-2 h-6">
-                      <div className="w-3 flex flex-col items-center h-full relative">
-                        <div className="w-[1.5px] h-full bg-indigo-500 relative z-10"></div>
-                        <div className="absolute top-0 left-2 w-[1.5px] h-3 bg-amber-500 z-20"></div>
-                        <Circle className="w-2.5 h-2.5 text-amber-500 fill-amber-500 absolute top-3 left-[5px] z-30" />
-                        <div className="absolute top-4 left-2 w-[1.5px] h-full bg-amber-500 z-20"></div>
-                      </div>
-                      <div className={`text-[10px] leading-3 truncate w-full ${editorTheme === "vs-dark" ? "text-slate-400" : "text-slate-500"}`}>
-                        feat: implement IDELayout component wi...
-                      </div>
-                    </div>
-                    
-                    {/* Commit Node 4 */}
-                    <div className="flex items-start gap-2 h-6">
-                      <div className="w-3 flex flex-col items-center h-full relative">
-                        <div className="w-[1.5px] h-3 bg-indigo-500 z-10"></div>
-                        <Circle className="w-2.5 h-2.5 text-[#3b82f6] fill-[#3b82f6] z-10" />
-                        <div className="w-[1.5px] h-full bg-indigo-500 z-10"></div>
-                        <div className="absolute top-0 left-2 w-[1.5px] h-full bg-amber-500 z-20"></div>
-                      </div>
-                      <div className={`text-[10px] leading-3 truncate w-full flex items-center gap-1 ${editorTheme === "vs-dark" ? "text-slate-400" : "text-slate-500"}`}>
-                        <span className={`text-[11px] font-medium ${editorTheme === "vs-dark" ? "text-slate-200" : "text-slate-700"}`}>search features completed</span>
-                        <span>ide-user</span>
-                      </div>
-                    </div>
-                    
-                  </div>
-                )}
-              </div>
-
-              {/* BOTTOM PANE: Git Bash Terminal */}
-              <div className={`${isTerminalExpanded ? "h-[35%] min-h-[200px]" : "h-auto"} flex flex-col shrink-0 border-t border-transparent shadow-[0_-5px_15px_rgba(0,0,0,0.1)] transition-all duration-300`}>
-                <div 
-                  onClick={() => setIsTerminalExpanded(!isTerminalExpanded)}
-                  className={`p-1.5 flex items-center gap-1 font-semibold tracking-wider text-[10px] uppercase transition-colors duration-250 cursor-pointer select-none border-y ${
-                    editorTheme === "vs-dark" ? "text-slate-400 bg-[#16161a] border-[#25252b] hover:bg-slate-800" : "text-slate-500 bg-[#f3f4f6] border-[#e5e7eb] hover:bg-slate-200"
-                  }`}
-                >
-                  <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${!isTerminalExpanded ? "-rotate-90" : ""}`} />
-                  <span className="flex items-center gap-1.5 flex-1"><Terminal className="w-3 h-3"/> Git Bash</span>
-                  <div className="flex gap-1.5 items-center pr-1" onClick={e => e.stopPropagation()}>
-                    <button className={`p-0.5 rounded transition-colors ${editorTheme === "vs-dark" ? "hover:bg-slate-700/50" : "hover:bg-slate-200/80"}`}><X className="w-3 h-3" /></button>
-                  </div>
-                </div>
-                
-                {isTerminalExpanded && (
-                  <div className="flex-1 bg-[#181818] text-[#cccccc] p-3 font-mono text-[11px] overflow-y-auto whitespace-pre-wrap select-text leading-relaxed">
-                    {gitTerminalHistory.map((line, idx) => (
-                      <div key={idx} className={line.startsWith('$') ? "text-white mt-1" : "opacity-80"}>
-                        {line}
-                      </div>
-                    ))}
-                    <div className="text-[#3fc9b5] mt-2 mb-1">
-                      <span className="text-[#3fc9b5]">ide-user@DESKTOP</span> <span className="text-[#d7ba7d]">MINGW64</span> <span className="text-[#c5c8c6]">~/workspace</span> <span className="text-[#62d2e1]">(main)</span>
-                    </div>
-                    <div className="flex items-center gap-2 relative">
-                      <span className="text-white shrink-0">$</span>
-                      <input 
-                        type="text" 
-                        value={gitTerminalInput}
-                        onChange={(e) => setGitTerminalInput(e.target.value)}
-                        onKeyDown={handleGitTerminalSubmit}
-                        className="bg-transparent text-white outline-none flex-1 border-none font-mono"
-                        autoFocus
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {activeLeftTab === "rooms" && (
-            <div className="flex flex-col h-full text-xs animate-fade-in duration-200">
-              <div className={`p-3.5 flex items-center justify-between font-semibold tracking-wider text-[10px] uppercase border-b transition-colors duration-250 ${
-                editorTheme === "vs-dark" ? "border-[#25252b] text-slate-400" : "border-[#e5e7eb] text-slate-500"
-              }`}>
-                <span>Workspaces / Rooms</span>
-                <button
-                  onClick={handleCreateNewRoom}
-                  className={`p-1 rounded cursor-pointer transition-colors ${editorTheme === "vs-dark" ? "hover:bg-slate-800/60 text-slate-400 hover:text-white" : "hover:bg-slate-200 text-slate-600 hover:text-slate-900"}`}
-                  title="Create New Room"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                </button>
-              </div>
-
-              <div className="flex-1 overflow-y-auto p-3.5 scrollbar-thin flex flex-col gap-2.5">
-                <div className="text-[10px] text-slate-500 font-extrabold uppercase tracking-widest pl-1 mb-1.5 flex items-center justify-between">
-                  <span>Visited Rooms History</span>
-                  <span className={`px-2 py-0.5 rounded-full text-[9px] ${editorTheme === "vs-dark" ? "bg-slate-800 text-slate-400" : "bg-slate-200 text-slate-600"}`}>
-                    {roomsHistory.length}
-                  </span>
-                </div>
-                
-                {roomsHistory.map((roomId) => {
-                  const isActive = roomId === workspaceId;
-                  const roomRoles = JSON.parse(localStorage.getItem('cod-ide-room-roles') || '{}');
-                  const role = roomRoles[roomId] || "owner";
-                  const roleLabel = role.charAt(0).toUpperCase() + role.slice(1);
-                  const passcodesMap = JSON.parse(localStorage.getItem('cod-ide-room-passcodes') || '{}');
-                  const isRoomPrivate = !!passcodesMap[roomId];
-
-                  return (
-                    <div
-                      key={roomId}
-                      className={`group flex flex-col p-3 rounded-xl border transition-all duration-250 cursor-pointer ${
-                        isActive
-                          ? (editorTheme === "vs-dark"
-                              ? "bg-indigo-950/20 border-indigo-500/50 shadow-md shadow-indigo-950/10"
-                              : "bg-indigo-50/60 border-indigo-250 shadow-sm")
-                          : (editorTheme === "vs-dark"
-                              ? "bg-[#18181c] border-slate-800/80 hover:bg-slate-800/20 hover:border-slate-700/60"
-                              : "bg-white border-slate-200 hover:bg-slate-50 hover:border-slate-350")
-                      }`}
-                      onClick={() => handleSwitchRoom(roomId)}
-                    >
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          {isRoomPrivate ? (
-                            <Lock className={`w-3.5 h-3.5 ${isActive ? "text-indigo-400" : "text-amber-500"}`} />
-                          ) : (
-                            <Globe className={`w-3.5 h-3.5 ${isActive ? "text-indigo-400" : "text-slate-500"}`} />
-                          )}
-                          <span className={`font-mono font-bold text-xs truncate max-w-[120px] ${isActive ? "text-indigo-400" : (editorTheme === "vs-dark" ? "text-slate-200" : "text-slate-700")}`}>
-                            {roomId}
-                          </span>
-                        </div>
-                        {isActive && (
-                          <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider ${editorTheme === "vs-dark" ? "bg-indigo-500/20 text-indigo-300" : "bg-indigo-100 text-indigo-700"}`}>
-                            Active
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="flex items-center justify-between text-[10px] text-slate-500 mt-1">
-                        <div className="flex items-center gap-1.5">
-                          <span className={`px-1.5 py-0.5 rounded-md font-bold uppercase tracking-wider text-[8px] ${
-                            role === "owner" 
-                              ? "bg-red-500/10 text-red-400 border border-red-500/20" 
-                              : role === "editor" 
-                              ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" 
-                              : "bg-amber-500/10 text-amber-400 border border-amber-500/20"
-                          }`}>
-                            {roleLabel}
-                          </span>
-                          {isRoomPrivate && (
-                            <span className="bg-amber-500/10 text-amber-400 border border-amber-500/20 px-1.5 py-0.5 rounded-md font-bold uppercase tracking-wider text-[8px]">
-                              Private
-                            </span>
-                          )}
-                        </div>
-
-                        {/* Actions (like delete from history) */}
-                        <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-all duration-200">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleRenameRoom(roomId);
-                            }}
-                            className={`p-1 rounded hover:bg-indigo-500/10 text-slate-500 hover:text-indigo-400 transition-colors`}
-                            title="Rename room"
-                          >
-                            <Edit2 className="w-3 h-3" />
-                          </button>
-                          {roomId !== "my-room" && (
-                            <button
-                              onClick={async (e) => {
-                                e.stopPropagation();
-                                const confirmDelete = window.confirm(`Delete room "${roomId}"? This will remove it from history and delete all data from the server.`);
-                                if (confirmDelete) {
-                                  // Call backend DELETE to clean up MongoDB + Redis
-                                  try {
-                                    const passcodes = JSON.parse(localStorage.getItem('cod-ide-room-passcodes') || '{}');
-                                    const passcode = passcodes[roomId] || "";
-                                    const url = new URL(`${BACKEND_API_URL}/workspace/${roomId}`);
-                                    if (passcode) url.searchParams.set('passcode', passcode);
-
-                                    await fetch(url.toString(), {
-                                      method: "DELETE",
-                                      headers: { "ngrok-skip-browser-warning": "true" }
-                                    });
-
-                                    // Clean passcode from localStorage
-                                    if (passcode) {
-                                      delete passcodes[roomId];
-                                      localStorage.setItem('cod-ide-room-passcodes', JSON.stringify(passcodes));
-                                    }
-                                  } catch (err) {
-                                    console.warn("Could not delete workspace from backend:", err);
-                                  }
-
-                                  const updatedHistory = roomsHistory.filter(r => r !== roomId);
-                                  updateRoomsHistory(updatedHistory);
-                                  
-                                  const roles = JSON.parse(localStorage.getItem('cod-ide-room-roles') || '{}');
-                                  delete roles[roomId];
-                                  localStorage.setItem('cod-ide-room-roles', JSON.stringify(roles));
-                                  
-                                  if (isActive) {
-                                    handleSwitchRoom("my-room");
-                                  }
-                                }
-                              }}
-                              className={`p-1 rounded hover:bg-red-500/10 text-slate-500 hover:text-red-400 transition-colors`}
-                              title="Delete room"
-                            >
-                              <Trash2 className="w-3 h-3" />
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Left Sidebar drag divider */}
-        {leftSidebarOpen && (
-          <div
-            onMouseDown={startResizingLeft}
-            className="w-1 hover:w-1.5 bg-transparent hover:bg-indigo-500/50 active:bg-indigo-500 transition-all cursor-col-resize z-30 shrink-0"
-            title="Resize Sidebar"
+        {/* Center Workspace (Editor + Bottom Panel + Floating Call Panel) */}
+        <div className="flex-1 flex flex-col min-w-0 relative h-full">
+          <EditorArea
+            editorTheme={editorTheme}
+            openTabs={openTabs}
+            files={files}
+            activeFilePath={activeFilePath}
+            setActiveFilePath={setActiveFilePath}
+            handleCloseTab={handleCloseTab}
+            showBreadcrumbs={showBreadcrumbs}
+            activeFile={activeFile}
+            fontSize={fontSize}
+            setFontSize={setFontSize}
+            bottomPanelOpen={bottomPanelOpen}
+            startResizingBottom={startResizingBottom}
+            handleEditorChange={handleEditorChange}
+            handleEditorDidMount={handleEditorDidMount}
+            minimapEnabled={minimapEnabled}
+            wordWrap={wordWrap}
+            tabSize={tabSize}
+            cursorBlinking={cursorBlinking}
+            lineNumbers={lineNumbers}
+            renderWhitespace={renderWhitespace}
+            bracketPairColorization={bracketPairColorization}
+            userRole={userRole}
+            fontFamily={fontFamily}
           />
-        )}
 
-        {/* 3. Editor Workspace Area (Center) */}
-        <div className={`flex-1 flex flex-col min-w-0 relative h-full transition-colors duration-250 ${
-          editorTheme === "vs-dark" ? "bg-[#131317]" : "bg-[#ffffff]"
-        }`}>
-
-          {/* Top Editor Area */}
-          <div className="flex-1 flex flex-col min-h-0 w-full relative">
-            {/* Tab bar */}
-            <div className={`h-10 flex items-center overflow-x-auto select-none scrollbar-none z-10 shrink-0 border-b transition-colors duration-250 ${
-              editorTheme === "vs-dark" ? "bg-[#16161a] border-[#1b1b20]" : "bg-[#f3f4f6] border-[#e5e7eb]"
-            }`}>
-              {openTabs.map(tabPath => {
-                const file = files[tabPath] || { name: tabPath };
-                const isActive = tabPath === activeFilePath;
-                return (
-                  <div
-                    key={tabPath}
-                    onClick={() => setActiveFilePath(tabPath)}
-                    className={`group h-full flex items-center gap-2.5 px-4.5 py-2 text-xs cursor-pointer transition-all duration-300 relative border-r ${
-                      isActive
-                        ? (editorTheme === "vs-dark"
-                            ? "bg-[#131317] text-white font-medium border-t-2 border-indigo-500 shadow-inner border-r-[#1f1f25]"
-                            : "bg-[#ffffff] text-slate-800 font-medium border-t-2 border-indigo-600 border-r-[#e5e7eb]")
-                        : (editorTheme === "vs-dark"
-                            ? "bg-[#18181c]/60 text-slate-400 hover:bg-[#18181c] hover:text-slate-200 border-r-[#1f1f25]"
-                            : "bg-[#e5e7eb]/60 text-slate-500 hover:bg-[#e5e7eb] hover:text-slate-800 border-r-[#e5e7eb]")
-                    }`}
-                  >
-                    {getFileIcon(file.name)}
-                    <span className="font-mono text-[11px]">{file.name}</span>
-                    <button
-                      onClick={(e) => handleCloseTab(e, tabPath)}
-                      className="p-0.5 rounded-full text-slate-500 hover:text-white hover:bg-slate-800/80 transition-colors ml-1"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Breadcrumb line */}
-            {showBreadcrumbs && (
-              <div className={`h-6.5 flex items-center px-4.5 text-[10px] font-mono gap-1.5 shrink-0 border-b transition-colors duration-250 ${
-                editorTheme === "vs-dark" ? "bg-[#131317] border-slate-900 text-slate-500" : "bg-[#ffffff] border-[#e5e7eb] text-slate-600"
-              }`}>
-                <span className="hover:text-slate-300 cursor-pointer">ide-app</span>
-                <ChevronRight className="w-3 h-3" />
-                <span className="hover:text-slate-300 cursor-pointer">src</span>
-                <ChevronRight className="w-3 h-3" />
-                {activeFile?.path?.includes("components") && (
-                  <>
-                    <span className="hover:text-slate-300 cursor-pointer">components</span>
-                    <ChevronRight className="w-3 h-3" />
-                  </>
-                )}
-                <span className={`font-medium ${editorTheme === "vs-dark" ? "text-indigo-400" : "text-indigo-600"}`}>{activeFile?.name}</span>
-              </div>
-            )}
-
-            {/* Monaco Editor Container */}
-            <div className={`flex-1 w-full relative ${editorTheme === "vs-dark" ? "bg-[#1e1e1e]" : "bg-white"}`}>
-              {activeFile?.path ? (
-                <Editor
-                  height="100%"
-                  path={activeFile.path}
-                  language={activeFile.language}
-                  value={activeFile.content}
-                  theme={editorTheme}
-                  onChange={handleEditorChange}
-                  onMount={handleEditorDidMount}
-                  options={{
-                    fontSize: fontSize,
-                    minimap: { enabled: minimapEnabled },
-                    wordWrap: wordWrap,
-                    tabSize: tabSize,
-                    cursorBlinking: cursorBlinking,
-                    scrollbar: {
-                      verticalScrollbarSize: 6,
-                      horizontalScrollbarSize: 6,
-                      vertical: "visible",
-                      horizontal: "visible"
-                    },
-                    lineNumbers: lineNumbers,
-                    renderWhitespace: renderWhitespace,
-                    bracketPairColorization: { enabled: bracketPairColorization },
-                    roundedSelection: true,
-                    scrollBeyondLastLine: false,
-                    readOnly: userRole === "viewer",
-                    automaticLayout: true,
-                    cursorSmoothCaretAnimation: "on",
-                    fontFamily: `${fontFamily}, Menlo, Monaco, Consolas, monospace`,
-                    fontLigatures: true,
-                    renderLineHighlight: "all",
-                    quickSuggestions: { other: true, comments: true, strings: true },
-                    suggestOnTriggerCharacters: true
-                  }}
-                />
-              ) : (
-                <div className="flex flex-col items-center justify-center h-full text-slate-500 gap-2">
-                  <Terminal className="w-12 h-12 text-slate-700 animate-pulse animate-duration-1000" />
-                  <p className="text-sm font-medium">No file active</p>
-                  <p className="text-xs text-slate-600">Select a file from the explorer or create a new one to begin editing.</p>
-                </div>
-              )}
-              {/* Screen share tiles are now shown in the call panel, not here */}
-            </div>
-
-            {/* Code actions bar / Overlay options */}
-            <div className={`absolute bottom-4 right-6 flex items-center gap-2 backdrop-blur py-1.5 px-3 rounded-xl shadow-xl text-[11px] z-10 select-none transition-colors duration-250 ${
-              editorTheme === "vs-dark"
-                ? "bg-[#1b1b22]/90 border border-slate-800/80 text-slate-300 shadow-black/40"
-                : "bg-white/95 border border-slate-200 text-slate-600 shadow-slate-200/40"
-            }`}>
-              <span className={`font-bold uppercase text-[9px] tracking-wide pr-1.5 border-r mr-1 ${
-                editorTheme === "vs-dark" ? "text-slate-500 border-slate-800" : "text-slate-400 border-slate-200"
-              }`}>Font Scale</span>
-              <button
-                onClick={() => setFontSize(prev => Math.max(10, prev - 1))}
-                className={`p-1 rounded-md w-5 h-5 flex items-center justify-center font-bold font-mono transition-colors cursor-pointer ${
-                  editorTheme === "vs-dark" ? "hover:bg-slate-800 text-slate-300 hover:text-white" : "hover:bg-slate-100 text-slate-500 hover:text-slate-800"
-                }`}
-              >
-                -
-              </button>
-              <span className={`font-mono font-semibold ${editorTheme === "vs-dark" ? "text-indigo-400" : "text-indigo-600"}`}>{fontSize}px</span>
-              <button
-                onClick={() => setFontSize(prev => Math.min(22, prev + 1))}
-                className={`p-1 rounded-md w-5 h-5 flex items-center justify-center font-bold font-mono transition-colors cursor-pointer ${
-                  editorTheme === "vs-dark" ? "hover:bg-slate-800 text-slate-300 hover:text-white" : "hover:bg-slate-100 text-slate-500 hover:text-slate-800"
-                }`}
-              >
-                +
-              </button>
-            </div>
-          </div>
-
-          {/* Bottom panel divider */}
-          {bottomPanelOpen && (
-            <div
-              onMouseDown={startResizingBottom}
-              className="h-1 hover:h-1.5 bg-transparent hover:bg-indigo-500/50 active:bg-indigo-500 transition-all cursor-row-resize z-30 shrink-0"
-              title="Resize Bottom Panel"
-            />
-          )}
-
-          {/* Bottom Panel */}
-          <div
-            className={`flex flex-col overflow-hidden z-20 border-t transition-colors duration-250 ${
-              editorTheme === "vs-dark"
-                ? "bg-[#0d0d11] border-[#202025]"
-                : "bg-white border-[#e5e7eb]"
-            }`}
-            style={{
-              height: bottomPanelOpen ? `${bottomPanelHeight}px` : 0,
-              transition: isResizingBottom ? 'none' : 'height 300ms ease-out'
-            }}
-          >
-            {/* Bottom Panel Header */}
-            <div className={`h-9 flex items-center justify-between px-4 text-xs font-semibold select-none shrink-0 border-b transition-colors duration-250 ${
-              editorTheme === "vs-dark"
-                ? "bg-[#141418] border-[#202025] text-slate-400"
-                : "bg-[#f3f4f6] border-[#e5e7eb] text-slate-500"
-            }`}>
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => setActiveBottomTab("terminal")}
-                  className={`flex items-center gap-1.5 pb-1 border-b-2 transition-all cursor-pointer ${
-                    activeBottomTab === "terminal"
-                      ? (editorTheme === "vs-dark" ? "text-indigo-400 border-indigo-500 font-bold" : "text-indigo-600 border-indigo-600 font-bold")
-                      : (editorTheme === "vs-dark" ? "border-transparent hover:text-slate-200" : "border-transparent hover:text-slate-800")
-                  }`}
-                >
-                  <Terminal className="w-3.5 h-3.5" />
-                  <span>Terminal</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setActiveBottomTab("output")}
-                  className={`flex items-center gap-1.5 pb-1 border-b-2 transition-all cursor-pointer ${
-                    activeBottomTab === "output"
-                      ? (editorTheme === "vs-dark" ? "text-indigo-400 border-indigo-500 font-bold" : "text-indigo-600 border-indigo-600 font-bold")
-                      : (editorTheme === "vs-dark" ? "border-transparent hover:text-slate-200" : "border-transparent hover:text-slate-800")
-                  }`}
-                >
-                  <TerminalSquare className="w-3.5 h-3.5" />
-                  <span>Output</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setActiveBottomTab("problems")}
-                  className={`flex items-center gap-1.5 pb-1 border-b-2 transition-all cursor-pointer ${
-                    activeBottomTab === "problems"
-                      ? (editorTheme === "vs-dark" ? "text-indigo-400 border-indigo-500 font-bold" : "text-indigo-600 border-indigo-600 font-bold")
-                      : (editorTheme === "vs-dark" ? "border-transparent hover:text-slate-200" : "border-transparent hover:text-slate-800")
-                  }`}
-                >
-                  <Bug className="w-3.5 h-3.5" />
-                  <span>Problems</span>
-                </button>
-              </div>
-
-              {/* Window action buttons (Clear & Close) */}
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (activeBottomTab === "terminal") {
-                      const prompt = getTerminalPrompt(clientOS);
-                      const header = getTerminalHeader(clientOS);
-                      setTerminalHistory([...header, prompt]);
-                    } else if (activeBottomTab === "output") {
-                      setOutputLogs([]);
-                    }
-                  }}
-                  className={`p-1 rounded cursor-pointer transition-colors ${
-                    editorTheme === "vs-dark"
-                      ? "hover:bg-slate-800 text-slate-400 hover:text-white"
-                      : "hover:bg-slate-200 text-slate-500 hover:text-slate-800"
-                  }`}
-                  title="Clear Console Output"
-                >
-                  <RefreshCw className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setBottomPanelOpen(false)}
-                  className={`p-1 rounded cursor-pointer transition-colors ${
-                    editorTheme === "vs-dark"
-                      ? "hover:bg-slate-800 text-slate-400 hover:text-white"
-                      : "hover:bg-slate-200 text-slate-500 hover:text-slate-800"
-                  }`}
-                  title="Close Panel"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            </div>
-
-            {/* Bottom Panel Content */}
-            <div className="flex-1 overflow-y-auto p-3 font-mono text-[11px] leading-relaxed scrollbar-thin select-text">
-              {activeBottomTab === "terminal" && (
-                <div className={`h-full flex flex-col ${editorTheme === "vs-dark" ? "text-slate-300" : "text-slate-700"}`}>
-                  <div className="flex-1 overflow-y-auto mb-1 whitespace-pre-wrap">
-                    {terminalHistory.map((line, idx) => (
-                      <div key={idx}>{line}</div>
-                    ))}
-                  </div>
-                  {/* Interactive Input Line */}
-                  <form
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      if (!terminalInput.trim()) return;
-                      const cmd = terminalInput.trim();
-                      const prompt = getTerminalPrompt(clientOS);
-
-                      if (cmd === "cls" || cmd === "clear") {
-                        setTerminalHistory([prompt]);
-                        setTerminalInput("");
-                        return;
-                      }
-
-                      // Execute Command (Native or Mock)
-                      const executeTerminalCmd = async () => {
-                        let reply = "";
-                        
-                        if (tauriInvokeRef.current) {
-                          // Running inside Tauri desktop application - execute actual native shell command!
-                          try {
-                            const res = await tauriInvokeRef.current("execute_command", { command: cmd });
-                            reply = res || "";
-                          } catch (err: any) {
-                            reply = err || "Error executing command";
-                          }
-                        } else {
-                          // Running inside regular web browser - fall back to mock environment with OS check
-                          if (cmd === "npm run dev" || cmd === "npm start" || cmd === "run") {
-                            handleRunCode();
-                            setTerminalInput("");
-                            return;
-                          } else if (cmd === "git status") {
-                            reply = "On branch main\nYour branch is up to date with 'origin/main'.\n\nChanges not staged for commit:\n  (use \"git add <file>...\" to update what will be committed)\n  (use \"git restore <file>...\" to discard changes in working directory)\n\tmodified:   src/components/IDELayout.tsx\n\nno changes added to commit (use \"git add\" and/or \"git commit -a\")";
-                          } else if (cmd.startsWith("help")) {
-                            reply = "Available commands (Mock): cls, clear, npm run dev, run, git status, help, node -v, echo <text>\n\nNote: To run actual machine shell commands, launch this IDE as a desktop application using Tauri.";
-                          } else if (cmd === "node -v") {
-                            reply = "v20.11.0";
-                          } else if (cmd.startsWith("echo ")) {
-                            reply = cmd.substring(5);
-                          } else {
-                            if (clientOS === "windows") {
-                              reply = `'${cmd.split(" ")[0]}' is not recognized as an internal or external command,\noperable program or batch file. Type 'help' for commands.`;
-                            } else {
-                              reply = `bash: ${cmd.split(" ")[0]}: command not found. Type 'help' for commands.`;
-                            }
-                          }
-                        }
-
-                        setTerminalHistory(prev => {
-                          const hist = [...prev];
-                          if (hist.length > 0) {
-                            hist[hist.length - 1] = hist[hist.length - 1] + cmd;
-                          }
-                          if (reply) {
-                            // If reply has newlines, split it and push
-                            const lines = reply.split("\n");
-                            hist.push(...lines);
-                          }
-                          hist.push(prompt);
-                          return hist;
-                        });
-                        setTerminalInput("");
-                      };
-
-                      executeTerminalCmd();
-                    }}
-                    className="flex items-center"
-                  >
-                    <span className="shrink-0">{getTerminalPrompt(clientOS)}&nbsp;</span>
-                    <input
-                      type="text"
-                      disabled={userRole !== "owner"}
-                      value={terminalInput}
-                      onChange={(e) => setTerminalInput(e.target.value)}
-                      placeholder={userRole !== "owner" ? "Terminal is read-only (Owner only)" : ""}
-                      className={`flex-1 bg-transparent focus:outline-none border-none outline-none ${
-                        editorTheme === "vs-dark" ? "text-slate-200 caret-indigo-400" : "text-slate-800 caret-indigo-650"
-                      } disabled:opacity-50 disabled:cursor-not-allowed`}
-                    />
-                  </form>
-                </div>
-              )}
-
-              {activeBottomTab === "output" && (
-                <div className={`whitespace-pre-wrap ${editorTheme === "vs-dark" ? "text-slate-300" : "text-slate-700"}`}>
-                  {outputLogs.length === 0 ? (
-                    <span className="text-slate-500 italic select-none">No build logs. Run compilation using the terminal...</span>
-                  ) : (
-                    outputLogs.map((log, idx) => {
-                      if (!log) return null;
-                      const hasCheck = log.includes("âœ“");
-                      const hasLaunch = log.includes("Launching") || log.includes("Running");
-                      return (
-                        <div
-                          key={idx}
-                          className={
-                            hasCheck
-                              ? (editorTheme === "vs-dark" ? "text-emerald-400" : "text-emerald-600 font-semibold")
-                              : hasLaunch
-                              ? (editorTheme === "vs-dark" ? "text-indigo-400" : "text-indigo-600 font-semibold")
-                              : (editorTheme === "vs-dark" ? "text-slate-300" : "text-slate-700")
-                          }
-                        >
-                          {log}
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
-              )}
-
-              {activeBottomTab === "problems" && (
-                <div className={`select-none flex flex-col items-center justify-center h-full gap-2 ${
-                  editorTheme === "vs-dark" ? "text-slate-400" : "text-slate-500"
-                }`}>
-                  <Bug className={`w-8 h-8 animate-pulse ${editorTheme === "vs-dark" ? "text-slate-600" : "text-slate-300"}`} />
-                  <span>No problems have been detected in the workspace. Clean build!</span>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Floating Call UI Panel */}
-          {isCallActive && isCallPanelOpen && (
-            <div
-              className={`absolute w-72 backdrop-blur-xl border rounded-2xl shadow-2xl z-40 overflow-hidden flex flex-col animate-slide-up ${
-                editorTheme === "vs-dark" 
-                  ? "bg-[#141419]/95 border-slate-700/50 shadow-black/60 text-white" 
-                  : "bg-white/95 border-slate-200 shadow-slate-200/50 text-slate-800"
-              }`}
-              style={{
-                top: `${24 + callPanelPos.y}px`,
-                right: `${24 - callPanelPos.x}px`
-              }}
-            >
-              {/* Call Header */}
-              <div
-                className={`px-4 py-2.5 border-b flex items-center justify-between cursor-move select-none ${
-                  editorTheme === "vs-dark" ? "bg-[#1b1b22] border-slate-800/80" : "bg-slate-50 border-slate-200"
-                }`}
-                onMouseDown={handleMouseDown}
-              >
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                  <span className={`text-[11px] font-bold tracking-wider uppercase ${
-                    editorTheme === "vs-dark" ? "text-slate-300" : "text-slate-600"
-                  }`}>Collab Session</span>
-                </div>
-                <button
-                  onClick={() => setIsCallPanelOpen(false)}
-                  className={`p-1 rounded-lg transition-colors cursor-pointer ${
-                    editorTheme === "vs-dark" ? "text-slate-400 hover:text-white hover:bg-slate-800/50" : "text-slate-500 hover:text-slate-800 hover:bg-slate-200/60"
-                  }`}
-                  onMouseDown={(e) => e.stopPropagation()}
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-
-              {/* Call Video/Avatars Grid */}
-              <div className={`p-4 grid grid-cols-2 gap-3 ${
-                editorTheme === "vs-dark" ? "bg-[#0d0d10]/40" : "bg-slate-50/50"
-              }`}>
-                {activeCollaborators.map((collab) => (
-                  <div 
-                    key={collab.id} 
-                    className={`relative aspect-square rounded-xl overflow-hidden border-2 flex flex-col items-center justify-center group transition-all duration-300 ${
-                      editorTheme === "vs-dark" ? "bg-slate-800/50" : "bg-slate-100 border-slate-200"
-                    } ${
-                      speakingUsers[collab.id.toString()]
-                        ? "ring-2 ring-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.55)] scale-[1.03] border-emerald-500"
-                        : (collab.isMe 
-                            ? (isMuted ? "border-red-500/50 shadow-[0_0_15px_rgba(239,68,68,0.15)]" : "border-emerald-500/50 shadow-[0_0_15px_rgba(16,185,129,0.15)]") 
-                            : "border-slate-700/50")
-                    }`}
-                  >
-                    <img src={collab.avatar} className="w-14 h-14 rounded-full" alt={collab.name} />
-                    <div className="absolute bottom-1.5 left-2 right-2 bg-black/60 backdrop-blur-md rounded-md px-1.5 py-0.5 flex items-center justify-between">
-                      {collab.isMe && isEditingName ? (
-                        <input
-                          type="text"
-                          value={userNameInput}
-                          onChange={(e) => setUserNameInput(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") handleSaveName();
-                            if (e.key === "Escape") setIsEditingName(false);
-                          }}
-                          onBlur={handleSaveName}
-                          autoFocus
-                          onClick={(e) => e.stopPropagation()}
-                          className="bg-slate-800 text-white text-[9px] px-1 py-0.5 rounded outline-none border border-indigo-500 w-20"
-                        />
-                      ) : (
-                        <span 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (collab.isMe) {
-                              setUserNameInput(collab.name);
-                              setIsEditingName(true);
-                            }
-                          }}
-                          className={`text-[9px] font-medium text-white truncate cursor-pointer ${collab.isMe ? "hover:underline hover:text-indigo-300" : ""}`}
-                          title={collab.isMe ? "Click to change name" : undefined}
-                        >
-                          {collab.name} {collab.isMe && "(You)"}
-                        </span>
-                      )}
-                      {collab.isMe ? (
-                        isMuted ? <MicOff className="w-2.5 h-2.5 text-red-400" /> : <Mic className="w-2.5 h-2.5 text-emerald-400" />
-                      ) : (
-                        <Mic className="w-2.5 h-2.5 text-emerald-400" />
-                      )}
-                    </div>
-                  </div>
-                ))}
-                {/* AI Agent Avatar */}
-                <div className={`relative aspect-square rounded-xl overflow-hidden border-2 flex flex-col items-center justify-center group col-span-2 h-28 ${
-                  editorTheme === "vs-dark" 
-                    ? "bg-purple-950/20 border-purple-500/50 shadow-[0_0_15px_rgba(168,85,247,0.15)]" 
-                    : "bg-purple-50 border-purple-300 shadow-[0_0_12px_rgba(168,85,247,0.08)]"
-                }`}>
-                  <div className="w-12 h-12 rounded-full bg-purple-600 flex items-center justify-center border-2 border-purple-400/50 animate-pulse-glow-purple">
-                     <Sparkles className="w-6 h-6 text-white" />
-                  </div>
-                  <div className="absolute bottom-2 left-3 right-3 bg-black/60 backdrop-blur-md rounded-lg px-2 py-1 flex items-center justify-between">
-                    <span className="text-[10px] font-bold text-purple-300">Agent Alpha</span>
-                    <Volume2 className="w-3 h-3 text-emerald-400 animate-pulse" />
-                  </div>
-                  {/* Audio wave mock */}
-                  {!isDeafened && (
-                    <div className="absolute top-3 right-3 flex gap-0.5">
-                      <span className="w-1 h-3 bg-emerald-400 rounded-full animate-bounce" style={{animationDelay: "0ms"}}></span>
-                      <span className="w-1 h-4 bg-emerald-400 rounded-full animate-bounce" style={{animationDelay: "100ms"}}></span>
-                      <span className="w-1 h-2 bg-emerald-400 rounded-full animate-bounce" style={{animationDelay: "200ms"}}></span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* ── Active Screen Share Tiles ── */}
-              {Object.entries(remoteScreenStreams).filter(([cid]) => !poppedOutScreens[cid]).map(([collabId, stream]) => {
-                const sharingCollab = activeCollaborators.find(c => c.id.toString() === collabId);
-                return (
-                  <div key={collabId} className={`mx-3 mb-3 rounded-xl overflow-hidden border flex flex-col ${
-                    editorTheme === "vs-dark" ? "bg-black border-slate-700/60" : "bg-slate-900 border-slate-600"
-                  }`}>
-                    {/* Tile header */}
-                    <div className={`px-2.5 py-1.5 flex items-center justify-between ${
-                      editorTheme === "vs-dark" ? "bg-[#1b1b22] border-b border-slate-800" : "bg-slate-800 border-b border-slate-700"
-                    }`}>
-                      <div className="flex items-center gap-1.5">
-                        <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
-                        <span className="text-[10px] font-semibold text-slate-300 truncate max-w-[120px]">
-                          {sharingCollab ? sharingCollab.name : `User-${collabId}`}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={() => togglePopOut(collabId)}
-                          className="p-1 rounded text-slate-400 hover:text-white hover:bg-slate-700/60 transition-colors cursor-pointer"
-                          title="Pop out"
-                        >
-                          <ExternalLink className="w-3 h-3" />
-                        </button>
-                        <button
-                          onClick={() => setRemoteScreenStreams(prev => { const n = { ...prev }; delete n[collabId]; return n; })}
-                          className="p-1 rounded text-slate-400 hover:text-red-400 hover:bg-slate-700/60 transition-colors cursor-pointer"
-                          title="Close"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-                      </div>
-                    </div>
-                    {/* Video */}
-                    <div className="bg-black flex items-center justify-center" style={{ minHeight: '120px' }}>
-                      <video
-                        ref={(el) => { if (el && el.srcObject !== stream) { el.srcObject = stream; el.play().catch(() => {}); } }}
-                        autoPlay playsInline
-                        className="w-full object-contain"
-                        style={{ maxHeight: '160px' }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-
-              {/* Call Controls */}
-              <div className={`p-3 flex justify-center gap-3 border-t ${
-                editorTheme === "vs-dark" ? "bg-[#1b1b22] border-slate-800/80" : "bg-slate-50 border-slate-200"
-              }`}>
-                <button
-                  onClick={() => setIsMuted(!isMuted)}
-                  className={`p-2.5 rounded-full transition-colors cursor-pointer ${
-                    isMuted ? "bg-red-600 hover:bg-red-500 text-white" : (editorTheme === "vs-dark" ? "bg-slate-700/50 hover:bg-slate-600 text-white" : "bg-slate-250 hover:bg-slate-300 text-slate-700")
-                  }`}
-                  title={isMuted ? "Unmute" : "Mute"}
-                >
-                  {isMuted ? <MicOff className="w-4.5 h-4.5" /> : <Mic className="w-4.5 h-4.5" />}
-                </button>
-                <button
-                  onClick={() => setIsDeafened(!isDeafened)}
-                  className={`p-2.5 rounded-full transition-colors cursor-pointer ${
-                    isDeafened ? "bg-red-600 hover:bg-red-500 text-white" : (editorTheme === "vs-dark" ? "bg-slate-700/50 hover:bg-slate-600 text-white" : "bg-slate-250 hover:bg-slate-300 text-slate-700")
-                  }`}
-                  title={isDeafened ? "Undeafen" : "Deafen"}
-                >
-                  {isDeafened ? <VolumeX className="w-4.5 h-4.5" /> : <Volume2 className="w-4.5 h-4.5" />}
-                </button>
-                <button
-                  onClick={() => setIsSharingScreen(!isSharingScreen)}
-                  className={`p-2.5 rounded-full transition-colors cursor-pointer ${
-                    isSharingScreen 
-                      ? "bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-950/40" 
-                      : (editorTheme === "vs-dark" ? "bg-slate-700/50 hover:bg-slate-600 text-white" : "bg-slate-250 hover:bg-slate-300 text-slate-700")
-                  }`}
-                  title={isSharingScreen ? "Stop Sharing Screen" : "Share Screen"}
-                >
-                  <MonitorUp className="w-4.5 h-4.5" />
-                </button>
-                <button
-                  onClick={handleExitCallWithAnimation}
-                  className="p-2.5 rounded-full bg-red-600 hover:bg-red-500 text-white shadow-lg shadow-red-900/40 transition-colors cursor-pointer"
-                  title="Disconnect"
-                >
-                  <PhoneOff className="w-4.5 h-4.5" />
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Right Sidebar drag divider */}
-        {rightSidebarOpen && (
-          <div
-            onMouseDown={startResizingRight}
-            className="w-1 hover:w-1.5 bg-transparent hover:bg-purple-500/50 active:bg-purple-500 transition-all cursor-col-resize z-30 shrink-0"
-            title="Resize AI Panel"
+          <BottomPanel
+            editorTheme={editorTheme}
+            bottomPanelOpen={bottomPanelOpen}
+            setBottomPanelOpen={setBottomPanelOpen}
+            bottomPanelHeight={bottomPanelHeight}
+            isResizingBottom={isResizingBottom}
+            activeBottomTab={activeBottomTab}
+            setActiveBottomTab={setActiveBottomTab}
+            clientOS={clientOS}
+            terminalHistory={terminalHistory}
+            setTerminalHistory={setTerminalHistory}
+            terminalInput={terminalInput}
+            setTerminalInput={setTerminalInput}
+            outputLogs={outputLogs}
+            setOutputLogs={setOutputLogs}
+            userRole={userRole}
+            tauriInvokeRef={tauriInvokeRef}
+            handleRunCode={handleRunCode}
           />
-        )}
 
-        {/* 4. Right Collapsible Sidebar (AI Chat Interface) */}
-        <div
-          className={`flex flex-col overflow-hidden relative z-10 gpu-layer border-l transition-all duration-300 ease-in-out ${
-            editorTheme === "vs-dark"
-              ? "bg-[#0b0b0f]/95 backdrop-blur-xl border-[#1d1d24] shadow-[-10px_0_30px_rgba(0,0,0,0.5)]"
-              : "bg-[#ffffff]/95 backdrop-blur-xl border-[#e2e8f0] shadow-[-10px_0_30px_rgba(0,0,0,0.03)]"
-          }`}
-          style={{
-            width: rightSidebarOpen ? `${rightSidebarWidth}px` : 0,
-            transition: isResizingRight ? 'none' : 'width 300ms ease-out'
-          }}
-        >
-          {/* Header with gradient flow */}
-          <div className={`p-4 flex items-center justify-between border-b transition-colors duration-250 ${
-            editorTheme === "vs-dark"
-              ? "bg-gradient-to-r from-[#111116] via-[#161622] to-[#0e0e12] border-[#1e1e26]"
-              : "bg-gradient-to-r from-[#fcfdfd] via-[#f8fafc] to-[#fcfdfd] border-[#e2e8f0]"
-          }`}>
-            <div className="flex items-center gap-2.5">
-              <div className="p-2 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400 shadow-[0_0_15px_rgba(168,85,247,0.2)] animate-pulse-glow-purple">
-                <Sparkles className="w-4.5 h-4.5" />
-              </div>
-              <div>
-                <span className="text-[10px] font-extrabold uppercase tracking-widest text-purple-500 block">System AI</span>
-                <span className={`text-[14px] font-bold block -mt-0.5 transition-colors duration-250 ${editorTheme === "vs-dark" ? "text-slate-100" : "text-slate-800"}`}>Coding Assistant</span>
-              </div>
-            </div>
-
-            <button
-              onClick={() => setRightSidebarOpen(false)}
-              className={`p-1.5 rounded-xl transition-all cursor-pointer hover:scale-105 active:scale-95 ${
-                editorTheme === "vs-dark" ? "hover:bg-slate-800/60 text-slate-400 hover:text-white" : "hover:bg-slate-100 text-slate-500 hover:text-slate-800"
-              }`}
-              title="Close Copilot Panel"
-            >
-              <X className="w-4.5 h-4.5" />
-            </button>
-          </div>
-
-          {/* AI Status Indicator Bar */}
-          <div className={`px-4 py-2 flex items-center justify-between text-xs border-b transition-colors duration-250 ${
-            editorTheme === "vs-dark"
-              ? "border-[#1c1c22] bg-[#07070a]/60 text-slate-400"
-              : "border-[#e2e8f0] bg-[#f8fafc] text-slate-500"
-          }`}>
-            <div className="flex items-center gap-2">
-              <span className="relative flex h-2 w-2">
-                {aiStatus !== "idle" && (
-                  <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
-                    aiStatus === "thinking" ? "bg-amber-400" : "bg-cyan-400"
-                  }`}></span>
-                )}
-                <span className={`relative inline-flex rounded-full h-2 w-2 ${
-                  aiStatus === "idle"
-                    ? "bg-emerald-500"
-                    : aiStatus === "thinking"
-                    ? "bg-amber-400"
-                    : "bg-cyan-400"
-                }`}></span>
-              </span>
-              <span className={`font-semibold ${editorTheme === "vs-dark" ? "text-slate-300" : "text-slate-700"}`}>
-                Copilot:{" "}
-                <span className={`font-bold uppercase tracking-wide text-[9px] px-1.5 py-0.5 rounded border ${
-                  aiStatus === "thinking"
-                    ? (editorTheme === "vs-dark" ? "text-amber-400 bg-amber-500/10 border-amber-500/20" : "text-amber-600 bg-amber-50 border-amber-200")
-                    : aiStatus === "typing"
-                    ? (editorTheme === "vs-dark" ? "text-cyan-400 bg-cyan-500/10 border-cyan-500/20 animate-pulse" : "text-cyan-600 bg-cyan-50 border-cyan-200 animate-pulse")
-                    : (editorTheme === "vs-dark" ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/20" : "text-emerald-600 bg-emerald-50 border-emerald-250")
-                }`}>
-                  {aiStatus === "idle" ? "Ready" : aiStatus}
-                </span>
-              </span>
-            </div>
-            {aiStatus !== "idle" && (
-              <span className="text-[10px] text-slate-500 font-mono animate-pulse">
-                {aiStatus === "thinking" ? "synching references..." : "streaming code..."}
-              </span>
-            )}
-          </div>
-
-          {/* Chat Timeline (Scrollable Messages Area) */}
-          <div 
-            ref={chatContainerRef} 
-            className="flex-1 overflow-y-auto p-4 space-y-4 text-xs scrollbar-thin"
-          >
-            {messages.map((msg) => (
-              <div
-                key={msg.id}
-                className={`flex gap-3 max-w-[90%] animate-slide-up ${
-                  msg.sender === "user" ? "ml-auto flex-row-reverse" : "mr-auto"
-                }`}
-              >
-                {/* Sender Avatar */}
-                <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 border shadow-md transition-all ${
-                  msg.sender === "user"
-                    ? "bg-slate-800/80 border-slate-700/50 text-slate-300"
-                    : "bg-purple-950/60 border-purple-800/50 text-purple-400 shadow-[0_0_10px_rgba(168,85,247,0.1)]"
-                }`}>
-                  {msg.sender === "user" ? <User className="w-4 h-4" /> : <Sparkles className="w-4 h-4" />}
-                </div>
-
-                {/* Message Bubble */}
-                <div className="flex flex-col gap-1.5 max-w-full">
-                  <div className={`p-4 rounded-2xl leading-relaxed whitespace-pre-wrap shadow-lg transition-colors duration-250 ${
-                    msg.sender === "user"
-                      ? "bg-gradient-to-br from-purple-600 to-indigo-600 text-white rounded-tr-none shadow-[0_4px_12px_rgba(124,58,237,0.2)]"
-                      : (editorTheme === "vs-dark"
-                          ? "bg-[#181822]/70 text-slate-200 border border-[#2d2d3c] rounded-tl-none"
-                          : "bg-white text-slate-700 border border-slate-200/80 rounded-tl-none shadow-[0_4px_12px_rgba(0,0,0,0.02)]")
-                  }`}>
-                    {/* Render Code Formatting in Chat Messages */}
-                    {msg.text.includes("```") ? (
-                      msg.text.split("```").map((block, idx) => {
-                        if (idx % 2 === 1) {
-                          // Code block
-                          const codeLines = block.split("\n");
-                          const lang = codeLines[0].trim();
-                          const actualCode = codeLines.slice(1).join("\n");
-                          const copyId = `${msg.id}-${idx}`;
-                          return (
-                            <div key={idx} className={`my-3 border rounded-xl overflow-hidden font-mono text-[11px] shadow-lg transition-colors duration-250 ${
-                              editorTheme === "vs-dark" ? "border-[#252533] bg-[#07070a] text-slate-300" : "border-slate-200 bg-[#f8fafc] text-slate-700"
-                            }`}>
-                              <div className={`px-3.5 py-1.5 text-[9px] font-bold flex justify-between items-center select-none border-b transition-colors duration-250 ${
-                                editorTheme === "vs-dark" ? "bg-[#0b0b10] text-slate-500 border-[#1d1d28]" : "bg-[#f1f5f9] text-slate-500 border-slate-200"
-                              }`}>
-                                <span className="uppercase tracking-wider font-semibold">{lang || "code"}</span>
-                                <button
-                                  onClick={() => handleCopyCode(actualCode, copyId)}
-                                  type="button"
-                                  className={`px-2 py-0.5 rounded transition-all flex items-center gap-1 cursor-pointer hover:scale-105 active:scale-95 ${
-                                    editorTheme === "vs-dark" ? "hover:text-white hover:bg-slate-800/80 text-slate-400" : "hover:text-slate-900 hover:bg-slate-200 text-slate-500"
-                                  }`}
-                                  title="Copy Code"
-                                >
-                                  {copiedCodeId === copyId ? (
-                                    <CheckCheck className="w-3.5 h-3.5 text-emerald-400" />
-                                  ) : (
-                                    <Copy className="w-3.5 h-3.5" />
-                                  )}
-                                  <span>{copiedCodeId === copyId ? "Copied!" : "Copy"}</span>
-                                </button>
-                              </div>
-                              <pre className="p-3.5 overflow-x-auto select-text scrollbar-thin"><code>{actualCode}</code></pre>
-                            </div>
-                          );
-                        }
-                        // Text block
-                        return <span key={idx}>{block}</span>;
-                      })
-                    ) : (
-                      msg.text
-                    )}
-                  </div>
-                  <span className="text-[9px] text-slate-500 self-end px-1.5">{msg.timestamp}</span>
-                </div>
-              </div>
-            ))}
-
-            {/* Streaming Typing Indicator Message */}
-            {aiStatus === "typing" && streamingMessage && (
-              <div className="flex gap-3 max-w-[90%] mr-auto animate-slide-up">
-                <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 border shadow-md ${
-                  editorTheme === "vs-dark" ? "bg-purple-950/60 border-purple-800/50 text-purple-400 animate-pulse-glow-purple" : "bg-purple-50 border-purple-250 text-purple-600"
-                }`}>
-                  <Sparkles className="w-4 h-4 animate-spin" />
-                </div>
-                <div className="flex flex-col gap-1.5 max-w-full">
-                  <div className={`p-4 rounded-2xl leading-relaxed whitespace-pre-wrap shadow-lg transition-colors duration-250 ${
-                    editorTheme === "vs-dark"
-                      ? "bg-[#181822]/70 text-slate-200 border border-[#2d2d3c] rounded-tl-none"
-                      : "bg-white text-slate-700 border border-slate-200/80 rounded-tl-none"
-                  }`}>
-                    {streamingMessage.includes("```") ? (
-                      streamingMessage.split("```").map((block, idx) => {
-                        if (idx % 2 === 1) {
-                          const codeLines = block.split("\n");
-                          const lang = codeLines[0].trim();
-                          const actualCode = codeLines.slice(1).join("\n");
-                          return (
-                            <div key={idx} className={`my-3 border rounded-xl overflow-hidden font-mono text-[11px] shadow-lg transition-colors duration-250 ${
-                              editorTheme === "vs-dark" ? "border-[#252533] bg-[#07070a] text-slate-300" : "border-slate-200 bg-[#f8fafc] text-slate-700"
-                            }`}>
-                              <div className={`px-3.5 py-1.5 text-[9px] font-bold flex justify-between items-center select-none border-b transition-colors duration-250 ${
-                                editorTheme === "vs-dark" ? "bg-[#0b0b10] text-slate-500 border-[#1d1d28]" : "bg-[#f1f5f9] text-slate-500 border-slate-200"
-                              }`}>
-                                <span className="uppercase tracking-wider font-semibold">{lang || "code"}</span>
-                              </div>
-                              <pre className="p-3.5 overflow-x-auto scrollbar-thin"><code>{actualCode}</code></pre>
-                            </div>
-                          );
-                        }
-                        return <span key={idx}>{block}</span>;
-                      })
-                    ) : (
-                      streamingMessage
-                    )}
-                    <span className="inline-block w-1.5 h-3.5 ml-1 bg-purple-500 animate-pulse rounded-sm align-middle"></span>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Thinking Indicator Animation */}
-            {aiStatus === "thinking" && (
-              <div className="flex gap-3 max-w-[90%] mr-auto items-start animate-slide-up">
-                <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 border shadow-md ${
-                  editorTheme === "vs-dark" ? "bg-purple-950/60 border-purple-800/50 text-purple-400 animate-pulse-glow-purple" : "bg-purple-50 border-purple-250 text-purple-600"
-                }`}>
-                  <Sparkles className="w-4 h-4 animate-spin" />
-                </div>
-                <div className={`border p-4.5 rounded-2xl rounded-tl-none flex items-center gap-1.5 shadow-lg transition-colors duration-250 ${
-                  editorTheme === "vs-dark" ? "bg-[#181822]/70 border-[#2d2d3c]" : "bg-white border-slate-200/80"
-                }`}>
-                  <span className="w-2 h-2 bg-purple-400 rounded-full animate-bounce-typing" style={{ animationDelay: "0ms" }}></span>
-                  <span className="w-2 h-2 bg-purple-400 rounded-full animate-bounce-typing" style={{ animationDelay: "150ms" }}></span>
-                  <span className="w-2 h-2 bg-purple-400 rounded-full animate-bounce-typing" style={{ animationDelay: "300ms" }}></span>
-                </div>
-              </div>
-            )}
-
-            <div ref={chatEndRef} />
-          </div>
-
-          {/* Quick Prompts Panel */}
-          <div className={`px-4 py-3.5 flex flex-col gap-2 shrink-0 border-t transition-colors duration-250 ${
-            editorTheme === "vs-dark"
-              ? "border-[#1c1c22] bg-[#07070a]/60"
-              : "border-[#e2e8f0] bg-[#f8fafc]"
-          }`}>
-            <span className="text-[9px] text-slate-500 font-extrabold uppercase tracking-widest pl-0.5">Quick Suggestions</span>
-            <div className="flex flex-wrap gap-1.5">
-              <button
-                onClick={() => handleQuickPrompt("explain")}
-                type="button"
-                disabled={aiStatus !== "idle"}
-                className={`flex items-center gap-1.5 text-[10px] px-3.5 py-2 rounded-xl transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-sm hover:shadow-[0_0_12px_rgba(168,85,247,0.25)] ${
-                  editorTheme === "vs-dark"
-                    ? "text-slate-200 hover:text-white bg-[#161620] hover:bg-purple-950/20 border border-[#252533] hover:border-purple-500/55"
-                    : "text-slate-700 hover:text-purple-700 bg-white hover:bg-purple-50/50 border border-slate-200 hover:border-purple-300"
-                }`}
-              >
-                <Code className="w-3.5 h-3.5 text-purple-400" />
-                <span>Explain code</span>
-              </button>
-              <button
-                onClick={() => handleQuickPrompt("refactor")}
-                type="button"
-                disabled={aiStatus !== "idle"}
-                className={`flex items-center gap-1.5 text-[10px] px-3.5 py-2 rounded-xl transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-sm hover:shadow-[0_0_12px_rgba(168,85,247,0.25)] ${
-                  editorTheme === "vs-dark"
-                    ? "text-slate-200 hover:text-white bg-[#161620] hover:bg-purple-950/20 border border-[#252533] hover:border-purple-500/55"
-                    : "text-slate-700 hover:text-purple-700 bg-white hover:bg-purple-50/50 border border-slate-200 hover:border-purple-300"
-                }`}
-              >
-                <Bug className="w-3.5 h-3.5 text-emerald-400" />
-                <span>Refactor</span>
-              </button>
-              <button
-                onClick={() => handleQuickPrompt("test")}
-                type="button"
-                disabled={aiStatus !== "idle"}
-                className={`flex items-center gap-1.5 text-[10px] px-3.5 py-2 rounded-xl transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-sm hover:shadow-[0_0_12px_rgba(168,85,247,0.25)] ${
-                  editorTheme === "vs-dark"
-                    ? "text-slate-200 hover:text-white bg-[#161620] hover:bg-purple-950/20 border border-[#252533] hover:border-purple-500/55"
-                    : "text-slate-700 hover:text-purple-700 bg-white hover:bg-purple-50/50 border border-slate-200 hover:border-purple-300"
-                }`}
-              >
-                <Play className="w-3.5 h-3.5 text-amber-400" />
-                <span>Write Tests</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Input Area */}
-          <form
-            onSubmit={(e) => {
-              stopListening();
-              handleSendMessage(e);
-            }}
-            className={`p-4 flex flex-col gap-2.5 shrink-0 border-t transition-colors duration-250 ${
-              editorTheme === "vs-dark" ? "bg-[#0b0b0f] border-[#1c1c22]" : "bg-white border-[#e2e8f0]"
-            }`}
-          >
-            <div className={`relative flex items-end rounded-2xl p-2.5 transition-all duration-300 border focus-within:shadow-[0_0_15px_rgba(168,85,247,0.15)] focus-within:scale-[1.01] ${
-              editorTheme === "vs-dark"
-                ? "bg-[#09090d] border-[#252533] focus-within:border-purple-500/60 focus-within:ring-1 focus-within:ring-purple-500/40"
-                : "bg-[#f8fafc] border border-slate-200 focus-within:bg-white focus-within:border-purple-500 focus-within:ring-1 focus-within:ring-purple-500/40"
-            }`}>
-              <textarea
-                ref={messageInputRef}
-                value={inputMessage}
-                onChange={(e) => setInputMessage(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    stopListening();
-                    handleSendMessage(e);
-                  }
-                }}
-                disabled={aiStatus !== "idle"}
-                placeholder="Ask Copilot to write, change, or review..."
-                className={`flex-1 max-h-24 min-h-[44px] resize-none bg-transparent text-xs placeholder-slate-500 self-center focus:outline-none scrollbar-none py-1 pl-1 ${
-                  editorTheme === "vs-dark" ? "text-white" : "text-slate-800"
-                }`}
-                rows={1}
-              />
-              <button
-                type="button"
-                onClick={handleVoiceInputToggle}
-                disabled={aiStatus !== "idle"}
-                className={`p-2 rounded-xl transition-all self-center hover-scale shrink-0 cursor-pointer mr-1.5 ${
-                  isListening
-                    ? "bg-red-600/20 text-red-400 border border-red-500/30 animate-pulse"
-                    : (editorTheme === "vs-dark" ? "text-slate-400 hover:text-white hover:bg-slate-800/40" : "text-slate-500 hover:text-slate-800 hover:bg-slate-200/50")
-                }`}
-                title={isListening ? "Listening... Click to stop" : "Voice input"}
-              >
-                {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
-              </button>
-              <button
-                type="submit"
-                disabled={!inputMessage.trim() || aiStatus !== "idle"}
-                className={`p-2 rounded-xl transition-all self-center hover-scale shrink-0 cursor-pointer ${
-                  inputMessage.trim() && aiStatus === "idle"
-                    ? "bg-purple-600 text-white hover:bg-purple-500 shadow-md shadow-purple-950/20"
-                    : (editorTheme === "vs-dark" ? "text-slate-600 bg-[#1e1e23]/30 cursor-not-allowed border border-transparent" : "text-slate-400 bg-slate-200/50 cursor-not-allowed border border-transparent")
-                }`}
-              >
-                <Send className="w-4 h-4" />
-              </button>
-            </div>
-            <span className="text-[9px] text-slate-600 text-center select-none">
-              AI Copilot can make mistakes. Verify critical code details.
-            </span>
-          </form>
+          <CallPanel
+            isCallActive={isCallActive}
+            isCallPanelOpen={isCallPanelOpen}
+            setIsCallPanelOpen={setIsCallPanelOpen}
+            editorTheme={editorTheme}
+            callPanelPos={callPanelPos}
+            handleMouseDown={handleMouseDown}
+            activeCollaborators={activeCollaborators}
+            speakingUsers={speakingUsers}
+            isMuted={isMuted}
+            setIsMuted={setIsMuted}
+            isDeafened={isDeafened}
+            setIsDeafened={setIsDeafened}
+            isSharingScreen={isSharingScreen}
+            setIsSharingScreen={setIsSharingScreen}
+            isEditingName={isEditingName}
+            setIsEditingName={setIsEditingName}
+            userNameInput={userNameInput}
+            setUserNameInput={setUserNameInput}
+            handleSaveName={handleSaveName}
+            remoteScreenStreams={remoteScreenStreams}
+            poppedOutScreens={poppedOutScreens}
+            togglePopOut={togglePopOut}
+            setRemoteScreenStreams={setRemoteScreenStreams}
+            handleExitCallWithAnimation={handleExitCallWithAnimation}
+          />
         </div>
 
+        {/* Right Collapsible Sidebar (AI Assistant) */}
+        <AIChatSidebar
+          rightSidebarOpen={rightSidebarOpen}
+          setRightSidebarOpen={setRightSidebarOpen}
+          rightSidebarWidth={rightSidebarWidth}
+          isResizingRight={isResizingRight}
+          startResizingRight={startResizingRight}
+          editorTheme={editorTheme}
+          aiStatus={aiStatus}
+          messages={messages}
+          streamingMessage={streamingMessage}
+          copiedCodeId={copiedCodeId}
+          handleCopyCode={handleCopyCode}
+          handleQuickPrompt={handleQuickPrompt}
+          inputMessage={inputMessage}
+          setInputMessage={setInputMessage}
+          isListening={isListening}
+          handleVoiceInputToggle={handleVoiceInputToggle}
+          stopListening={stopListening}
+          handleSendMessage={handleSendMessage}
+          chatContainerRef={chatContainerRef}
+          chatEndRef={chatEndRef}
+          messageInputRef={messageInputRef}
+        />
       </div>
 
-      {/* 5. Status Bar (Bottom) */}
-      {showStatusBar && (
-        <footer className={`h-6.5 flex items-center justify-between px-4 text-[11px] select-none z-20 shrink-0 font-medium border-t transition-colors duration-250 ${
-          editorTheme === "vs-dark"
-            ? "bg-[#0d0d11] border-[#1c1c22] text-slate-400"
-            : "bg-white border-slate-200 text-slate-600 shadow-[0_-1px_3px_rgba(0,0,0,0.02)]"
-        }`}>
-          <div className="flex items-center gap-4">
-            <div className={`flex items-center gap-1 px-2.5 py-0.5 cursor-pointer h-full transition-colors ${
-              editorTheme === "vs-dark" ? "hover:bg-slate-800/60 hover:text-slate-200" : "hover:bg-slate-100 hover:text-slate-900"
-            }`}>
-              <GitBranch className="w-3.5 h-3.5" />
-              <span>main</span>
-            </div>
-            <div className={`flex items-center gap-2.5 px-2.5 py-0.5 cursor-pointer h-full transition-colors ${
-              editorTheme === "vs-dark" ? "hover:bg-slate-800/60 hover:text-slate-200" : "hover:bg-slate-100 hover:text-slate-900"
-            }`}>
-              <div className="flex items-center gap-1">
-                <span className="font-bold">0</span>
-                <X className={`w-3 h-3 ${editorTheme === "vs-dark" ? "text-red-400" : "text-red-600"}`} />
-              </div>
-              <div className="flex items-center gap-1">
-                <span className="font-bold">0</span>
-                <Bug className={`w-3 h-3 ${editorTheme === "vs-dark" ? "text-amber-400" : "text-amber-600"}`} />
-              </div>
-            </div>
-            <div
-              onClick={() => setBottomPanelOpen(prev => !prev)}
-              className={`hidden sm:flex items-center gap-1.5 text-[10px] font-mono px-2 py-0.5 cursor-pointer h-full transition-colors ${
-                editorTheme === "vs-dark"
-                  ? "text-indigo-400 hover:bg-slate-800/60 hover:text-indigo-300"
-                  : "text-indigo-600 hover:bg-slate-100 hover:text-indigo-800"
-              }`}
-              title="Toggle Bottom Console Panel"
-            >
-              <TerminalSquare className="w-3.5 h-3.5 shrink-0" />
-              <span>Console: {bottomPanelOpen ? "OPEN" : "CLOSED"}</span>
-            </div>
-          </div>
+      {/* 3. Status Bar */}
+      <StatusBar
+        showStatusBar={showStatusBar}
+        editorTheme={editorTheme}
+        bottomPanelOpen={bottomPanelOpen}
+        setBottomPanelOpen={setBottomPanelOpen}
+        aiStatus={aiStatus}
+      />
 
-          <div className="flex items-center gap-3">
-            <span className={`px-2 py-0.5 cursor-pointer h-full hidden md:inline transition-colors ${editorTheme === "vs-dark" ? "hover:bg-slate-800/60" : "hover:bg-slate-100"}`}>Ln 14, Col 5</span>
-            <span className={`px-2 py-0.5 cursor-pointer h-full hidden md:inline transition-colors ${editorTheme === "vs-dark" ? "hover:bg-slate-800/60" : "hover:bg-slate-100"}`}>Spaces: 2</span>
-            <span className={`px-2 py-0.5 cursor-pointer h-full hidden sm:inline transition-colors ${editorTheme === "vs-dark" ? "hover:bg-slate-800/60" : "hover:bg-slate-100"}`}>UTF-8</span>
-            <span className={`px-2 py-0.5 cursor-pointer h-full transition-colors ${editorTheme === "vs-dark" ? "hover:bg-slate-800/60" : "hover:bg-slate-100"}`}>TypeScript JSX</span>
-            <span className={`px-2.5 py-0.5 cursor-pointer h-full transition-colors flex items-center gap-1 ${
-              editorTheme === "vs-dark" ? "text-indigo-400 hover:bg-slate-800/60" : "text-indigo-600 hover:bg-slate-100"
-            }`}>
-              <Sparkles className={`w-3.5 h-3.5 ${aiStatus !== "idle" ? "animate-spin text-amber-500" : ""}`} />
-              <span>Copilot Sync'd</span>
-            </span>
-          </div>
-        </footer>
-      )}
+      {/* 4. Modals and Overlays */}
+      <SettingsModal
+        showSettings={showSettings}
+        setShowSettings={setShowSettings}
+        editorTheme={editorTheme}
+        setEditorTheme={setEditorTheme}
+        activeSettingsTab={activeSettingsTab}
+        setActiveSettingsTab={setActiveSettingsTab}
+        minimapEnabled={minimapEnabled}
+        setMinimapEnabled={setMinimapEnabled}
+        autoSave={autoSave}
+        setAutoSave={setAutoSave}
+        bracketPairColorization={bracketPairColorization}
+        setBracketPairColorization={setBracketPairColorization}
+        formatOnSave={formatOnSave}
+        setFormatOnSave={setFormatOnSave}
+        fontFamily={fontFamily}
+        setFontFamily={setFontFamily}
+        wordWrap={wordWrap}
+        setWordWrap={setWordWrap}
+        lineNumbers={lineNumbers}
+        setLineNumbers={setLineNumbers}
+        renderWhitespace={renderWhitespace}
+        setRenderWhitespace={setRenderWhitespace}
+        cursorBlinking={cursorBlinking}
+        setCursorBlinking={setCursorBlinking}
+        tabSize={tabSize}
+        setTabSize={setTabSize}
+        sidebarPosition={sidebarPosition}
+        setSidebarPosition={setSidebarPosition}
+        showStatusBar={showStatusBar}
+        setShowStatusBar={setShowStatusBar}
+        showBreadcrumbs={showBreadcrumbs}
+        setShowBreadcrumbs={setShowBreadcrumbs}
+        glassBlur={glassBlur}
+        setGlassBlur={setGlassBlur}
+        aiAutocompleteMode={aiAutocompleteMode}
+        setAiAutocompleteMode={setAiAutocompleteMode}
+        aiMaxTokens={aiMaxTokens}
+        setAiMaxTokens={setAiMaxTokens}
+        aiTemperature={aiTemperature}
+        setAiTemperature={setAiTemperature}
+        aiSystemPrompt={aiSystemPrompt}
+        setAiSystemPrompt={setAiSystemPrompt}
+      />
 
-      {/* Settings Modal */}
-      {showSettings && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-          <div className="settings-glass-panel w-full max-w-2xl h-[450px] rounded-2xl flex flex-col overflow-hidden shadow-2xl relative animate-slide-up" style={{
-            background: editorTheme === "vs-dark"
-              ? "linear-gradient(135deg, rgba(24,24,28,0.95) 0%, rgba(30,30,35,0.92) 100%)"
-              : "linear-gradient(135deg, rgba(249,250,251,0.95) 0%, rgba(243,244,246,0.92) 100%)",
-            border: editorTheme === "vs-dark"
-              ? "1px solid rgba(51,51,68,0.4)"
-              : "1px solid rgba(203,213,225,0.4)",
-            backdropFilter: `blur(${glassBlur}px)`,
-            WebkitBackdropFilter: `blur(${glassBlur}px)`
-          }}>
-
-            {/* Modal Header */}
-            <div className={`px-5 py-4 border-b flex items-center justify-between transition-colors duration-250 ${
-              editorTheme === "vs-dark" ? "border-slate-800/80 text-white" : "border-slate-200 text-slate-800"
-            }`}>
-              <div className="flex items-center gap-2">
-                <Settings className={`w-5 h-5 ${editorTheme === "vs-dark" ? "text-indigo-400" : "text-indigo-600"}`} />
-                <span className="font-bold text-sm tracking-wide">COD CODE User Settings</span>
-              </div>
-              <button
-                onClick={() => setShowSettings(false)}
-                className={`p-1.5 rounded-xl transition-all cursor-pointer ${
-                  editorTheme === "vs-dark" ? "hover:bg-slate-800 text-slate-400 hover:text-white" : "hover:bg-slate-100 text-slate-500 hover:text-slate-800"
-                }`}
-                title="Close settings"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Modal Body */}
-            <div className="flex-1 flex overflow-hidden">
-
-              {/* Left Settings Sidebar Tabs */}
-              <div className={`w-48 shrink-0 p-3 flex flex-col gap-1 border-r transition-colors duration-250 ${
-                editorTheme === "vs-dark" ? "bg-[#18181c]/40 border-slate-800/80" : "bg-[#f9fafb] border-slate-200"
-              }`}>
-                <button
-                  onClick={() => setActiveSettingsTab("editor")}
-                  className={`w-full py-2 px-3 rounded-lg text-left text-xs font-semibold transition-all cursor-pointer ${
-                    activeSettingsTab === "editor"
-                      ? "bg-indigo-600 text-white shadow-md shadow-indigo-950/20"
-                      : (editorTheme === "vs-dark" ? "text-slate-400 hover:bg-slate-800/60 hover:text-slate-200" : "text-slate-600 hover:bg-slate-200/50 hover:text-slate-900")
-                  }`}
-                >
-                  Editor Configuration
-                </button>
-                <button
-                  onClick={() => setActiveSettingsTab("interface")}
-                  className={`w-full py-2 px-3 rounded-lg text-left text-xs font-semibold transition-all cursor-pointer ${
-                    activeSettingsTab === "interface"
-                      ? "bg-indigo-600 text-white shadow-md shadow-indigo-950/20"
-                      : (editorTheme === "vs-dark" ? "text-slate-400 hover:bg-slate-800/60 hover:text-slate-200" : "text-slate-600 hover:bg-slate-200/50 hover:text-slate-900")
-                  }`}
-                >
-                  Interface & Layout
-                </button>
-                <button
-                  onClick={() => setActiveSettingsTab("ai")}
-                  className={`w-full py-2 px-3 rounded-lg text-left text-xs font-semibold transition-all cursor-pointer ${
-                    activeSettingsTab === "ai"
-                      ? "bg-indigo-600 text-white shadow-md shadow-indigo-950/20"
-                      : (editorTheme === "vs-dark" ? "text-slate-400 hover:bg-slate-800/60 hover:text-slate-200" : "text-slate-600 hover:bg-slate-200/50 hover:text-slate-900")
-                  }`}
-                >
-                  AI Configuration
-                </button>
-              </div>
-
-              {/* Right Settings Configuration Form */}
-              <div className={`flex-1 p-5 overflow-y-auto text-xs space-y-5 transition-colors duration-250 ${
-                editorTheme === "vs-dark" ? "text-slate-300" : "text-slate-700"
-              }`}>
-                {activeSettingsTab === "editor" && (
-                  <>
-                    <div className="border-b pb-3 border-transparent">
-                      <h3 className={`text-[13px] font-bold mb-1.5 ${editorTheme === "vs-dark" ? "text-slate-100" : "text-slate-800"}`}>Text Editor Customization</h3>
-                      <p className={`text-[11px] ${editorTheme === "vs-dark" ? "text-slate-500" : "text-slate-500"}`}>Configure Monaco Editor behavior and appearance.</p>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div className="space-y-3">
-                        <label className="flex items-center gap-2 cursor-pointer select-none">
-                          <input
-                            type="checkbox"
-                            checked={minimapEnabled}
-                            onChange={(e) => setMinimapEnabled(e.target.checked)}
-                            className="w-3.5 h-3.5 rounded accent-indigo-600 cursor-pointer"
-                          />
-                          <span className="font-semibold">Enable Minimap</span>
-                        </label>
-
-                        <label className="flex items-center gap-2 cursor-pointer select-none">
-                          <input
-                            type="checkbox"
-                            checked={autoSave}
-                            onChange={(e) => setAutoSave(e.target.checked)}
-                            className="w-3.5 h-3.5 rounded accent-indigo-600 cursor-pointer"
-                          />
-                          <span className="font-semibold">Auto-save</span>
-                        </label>
-
-                        <label className="flex items-center gap-2 cursor-pointer select-none">
-                          <input
-                            type="checkbox"
-                            checked={bracketPairColorization}
-                            onChange={(e) => setBracketPairColorization(e.target.checked)}
-                            className="w-3.5 h-3.5 rounded accent-indigo-600 cursor-pointer"
-                          />
-                          <span className="font-semibold">Bracket Pair Colorization</span>
-                        </label>
-
-                        <label className="flex items-center gap-2 cursor-pointer select-none">
-                          <input
-                            type="checkbox"
-                            checked={formatOnSave}
-                            onChange={(e) => setFormatOnSave(e.target.checked)}
-                            className="w-3.5 h-3.5 rounded accent-indigo-600 cursor-pointer"
-                          />
-                          <span className="font-semibold">Format On Save</span>
-                        </label>
-                      </div>
-
-                      <div className="space-y-2">
-                        <label className="block">
-                          <span className="font-semibold">Font Family</span>
-                          <select
-                            value={fontFamily}
-                            onChange={(e) => setFontFamily(e.target.value)}
-                            className={`w-full mt-1 px-2 py-1.5 rounded text-xs border transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
-                              editorTheme === "vs-dark"
-                                ? "bg-[#1b1b22] border-slate-700 text-white"
-                                : "bg-white border-slate-300 text-slate-800"
-                            }`}
-                          >
-                            <option value="Fira Code">Fira Code</option>
-                            <option value="JetBrains Mono">JetBrains Mono</option>
-                            <option value="Source Code Pro">Source Code Pro</option>
-                            <option value="Courier New">Courier New</option>
-                          </select>
-                        </label>
-
-                        <label className="block">
-                          <span className="font-semibold">Word Wrap</span>
-                          <select
-                            value={wordWrap}
-                            onChange={(e) => setWordWrap(e.target.value as "on" | "off")}
-                            className={`w-full mt-1 px-2 py-1.5 rounded text-xs border transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
-                              editorTheme === "vs-dark"
-                                ? "bg-[#1b1b22] border-slate-700 text-white"
-                                : "bg-white border-slate-300 text-slate-800"
-                            }`}
-                          >
-                            <option value="on">On</option>
-                            <option value="off">Off</option>
-                          </select>
-                        </label>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
-                      <label className="block">
-                        <span className="font-semibold">Line Numbers</span>
-                        <select
-                          value={lineNumbers}
-                          onChange={(e) => setLineNumbers(e.target.value as "on" | "off" | "relative")}
-                          className={`w-full mt-1 px-2 py-1.5 rounded text-xs border transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
-                            editorTheme === "vs-dark"
-                              ? "bg-[#1b1b22] border-slate-700 text-white"
-                              : "bg-white border-slate-300 text-slate-800"
-                          }`}
-                        >
-                          <option value="on">On</option>
-                          <option value="off">Off</option>
-                          <option value="relative">Relative</option>
-                        </select>
-                      </label>
-
-                      <label className="block">
-                        <span className="font-semibold">Render Whitespace</span>
-                        <select
-                          value={renderWhitespace}
-                          onChange={(e) => setRenderWhitespace(e.target.value as "none" | "boundary" | "all")}
-                          className={`w-full mt-1 px-2 py-1.5 rounded text-xs border transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
-                            editorTheme === "vs-dark"
-                              ? "bg-[#1b1b22] border-slate-700 text-white"
-                              : "bg-white border-slate-300 text-slate-800"
-                          }`}
-                        >
-                          <option value="none">None</option>
-                          <option value="boundary">Boundary</option>
-                          <option value="all">All</option>
-                        </select>
-                      </label>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
-                      <label className="block">
-                        <span className="font-semibold">Cursor Blinking</span>
-                        <select
-                          value={cursorBlinking}
-                          onChange={(e) => setCursorBlinking(e.target.value as "smooth" | "blink" | "solid" | "expand")}
-                          className={`w-full mt-1 px-2 py-1.5 rounded text-xs border transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
-                            editorTheme === "vs-dark"
-                              ? "bg-[#1b1b22] border-slate-700 text-white"
-                              : "bg-white border-slate-300 text-slate-800"
-                          }`}
-                        >
-                          <option value="blink">Blink</option>
-                          <option value="smooth">Smooth</option>
-                          <option value="expand">Expand</option>
-                          <option value="solid">Solid</option>
-                        </select>
-                      </label>
-
-                      <label className="block">
-                        <div className="flex items-center justify-between">
-                          <span className="font-semibold">Tab Size: <span className="text-indigo-400">{tabSize}</span></span>
-                        </div>
-                        <input
-                          type="range"
-                          min="1"
-                          max="8"
-                          value={tabSize}
-                          onChange={(e) => setTabSize(parseInt(e.target.value))}
-                          className="w-full mt-2.5 accent-indigo-600 cursor-pointer"
-                        />
-                      </label>
-                    </div>
-                  </>
-                )}
-
-                {activeSettingsTab === "interface" && (
-                  <>
-                    <div className="border-b pb-3 border-transparent">
-                      <h3 className={`text-[13px] font-bold mb-1.5 ${editorTheme === "vs-dark" ? "text-slate-100" : "text-slate-800"}`}>IDE Interface Parameters</h3>
-                      <p className={`text-[11px] ${editorTheme === "vs-dark" ? "text-slate-500" : "text-slate-500"}`}>Adjust IDE layout, sidebars, and panel visibility.</p>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <label className="block">
-                          <span className="font-semibold">Color Theme</span>
-                          <select
-                            value={editorTheme}
-                            onChange={(e) => setEditorTheme(e.target.value as "vs-dark" | "light")}
-                            className={`w-full mt-1 px-2 py-1.5 rounded text-xs border transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
-                              editorTheme === "vs-dark"
-                                ? "bg-[#1b1b22] border-slate-700 text-white"
-                                : "bg-white border-slate-300 text-slate-800"
-                            }`}
-                          >
-                            <option value="vs-dark">VS Dark (Premium Charcoal)</option>
-                            <option value="light">Light Mode (Clean Snow)</option>
-                          </select>
-                        </label>
-
-                        <label className="block">
-                          <span className="font-semibold">Sidebar Position</span>
-                          <select
-                            value={sidebarPosition}
-                            onChange={(e) => setSidebarPosition(e.target.value as "left" | "right")}
-                            className={`w-full mt-1 px-2 py-1.5 rounded text-xs border transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
-                              editorTheme === "vs-dark"
-                                ? "bg-[#1b1b22] border-slate-700 text-white"
-                                : "bg-white border-slate-300 text-slate-800"
-                            }`}
-                          >
-                            <option value="left">Left Side</option>
-                            <option value="right">Right Side</option>
-                          </select>
-                        </label>
-                      </div>
-
-                      <div className="space-y-3 flex flex-col justify-center">
-                        <label className="flex items-center gap-2 cursor-pointer select-none">
-                          <input
-                            type="checkbox"
-                            checked={showStatusBar}
-                            onChange={(e) => setShowStatusBar(e.target.checked)}
-                            className="w-3.5 h-3.5 rounded accent-indigo-600 cursor-pointer"
-                          />
-                          <span className="font-semibold">Show Status Bar</span>
-                        </label>
-
-                        <label className="flex items-center gap-2 cursor-pointer select-none">
-                          <input
-                            type="checkbox"
-                            checked={showBreadcrumbs}
-                            onChange={(e) => setShowBreadcrumbs(e.target.checked)}
-                            className="w-3.5 h-3.5 rounded accent-indigo-600 cursor-pointer"
-                          />
-                          <span className="font-semibold">Show Breadcrumbs</span>
-                        </label>
-                      </div>
-                    </div>
-
-                    <div className="pt-2">
-                      <label className="block">
-                        <div className="flex items-center justify-between">
-                          <span className="font-semibold">Glassmorphism Blur: <span className="text-indigo-400">{glassBlur}px</span></span>
-                        </div>
-                        <input
-                          type="range"
-                          min="0"
-                          max="40"
-                          value={glassBlur}
-                          onChange={(e) => setGlassBlur(parseInt(e.target.value))}
-                          className="w-full mt-2 accent-indigo-600 cursor-pointer"
-                        />
-                      </label>
-                    </div>
-                  </>
-                )}
-
-                {activeSettingsTab === "ai" && (
-                  <>
-                    <div className="border-b pb-3 border-transparent">
-                      <h3 className={`text-[13px] font-bold mb-1.5 ${editorTheme === "vs-dark" ? "text-slate-100" : "text-slate-800"}`}>AI Chat & Copilot Configuration</h3>
-                      <p className={`text-[11px] ${editorTheme === "vs-dark" ? "text-slate-500" : "text-slate-500"}`}>Manage AI assistant and Copilot integrations.</p>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <label className="block">
-                          <span className="font-semibold">Autocomplete Mode</span>
-                          <select
-                            value={aiAutocompleteMode}
-                            onChange={(e) => setAiAutocompleteMode(e.target.value as "always" | "manual" | "disabled")}
-                            className={`w-full mt-1 px-2 py-1.5 rounded text-xs border transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
-                              editorTheme === "vs-dark"
-                                ? "bg-[#1b1b22] border-slate-700 text-white"
-                                : "bg-white border-slate-300 text-slate-800"
-                            }`}
-                          >
-                            <option value="always">Always (As-You-Type)</option>
-                            <option value="manual">Manual Trigger Only</option>
-                            <option value="disabled">Disabled</option>
-                          </select>
-                        </label>
-                      </div>
-
-                      <div className="space-y-3">
-                        <label className="block">
-                          <div className="flex items-center justify-between">
-                            <span className="font-semibold">Max Response Length: <span className="text-indigo-400">{aiMaxTokens} tokens</span></span>
-                          </div>
-                          <input
-                            type="range"
-                            min="256"
-                            max="2048"
-                            step="128"
-                            value={aiMaxTokens}
-                            onChange={(e) => setAiMaxTokens(parseInt(e.target.value))}
-                            className="w-full mt-2.5 accent-indigo-600 cursor-pointer"
-                          />
-                        </label>
-
-                        <label className="block">
-                          <div className="flex items-center justify-between">
-                            <span className="font-semibold">Temperature: <span className="text-indigo-400">{aiTemperature}</span></span>
-                          </div>
-                          <input
-                            type="range"
-                            min="0"
-                            max="1"
-                            step="0.1"
-                            value={aiTemperature}
-                            onChange={(e) => setAiTemperature(parseFloat(e.target.value))}
-                            className="w-full mt-2.5 accent-indigo-600 cursor-pointer"
-                          />
-                        </label>
-                      </div>
-                    </div>
-
-                    <div className="pt-1">
-                      <label className="block">
-                        <span className="font-semibold">Copilot Context Directive / System Prompt</span>
-                        <textarea
-                          value={aiSystemPrompt}
-                          onChange={(e) => setAiSystemPrompt(e.target.value)}
-                          className={`w-full mt-1.5 px-2 py-1.5 rounded text-xs border transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none h-[65px] ${
-                            editorTheme === "vs-dark"
-                              ? "bg-[#1b1b22] border-slate-700 text-white placeholder-slate-600"
-                              : "bg-white border-slate-300 text-slate-800 placeholder-slate-400"
-                          }`}
-                          placeholder="e.g., Use functional components with hooks, keep code modular..."
-                        />
-                      </label>
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
-
-            {/* Modal Footer */}
-            <div className={`px-5 py-3 border-t flex items-center justify-end gap-3 transition-colors duration-250 ${
-              editorTheme === "vs-dark" ? "bg-[#101014] border-slate-800/80" : "bg-[#f9fafb] border-slate-200"
-            }`}>
-              <button
-                onClick={() => setShowSettings(false)}
-                className="bg-indigo-600 hover:bg-indigo-500 text-white px-4.5 py-1.5 rounded-lg text-xs font-semibold cursor-pointer shadow-md hover-scale"
-              >
-                Close Settings
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── Floating Screenshare Popups ── */}
-      {Object.entries(remoteScreenStreams).filter(([cid]) => poppedOutScreens[cid]).map(([collabId, stream]) => {
-        const sharingCollab = activeCollaborators.find(c => c.id.toString() === collabId);
-        const pos = popupPositions[collabId] || { x: 80, y: 80 };
-        const isMax = !!maximizedPopups[collabId];
-        return (
-          <div
-            key={collabId}
-            className={`fixed z-[200] rounded-2xl shadow-2xl border flex flex-col overflow-hidden ${
-              editorTheme === "vs-dark"
-                ? "bg-[#0e0e12] border-slate-700/70 shadow-black/70"
-                : "bg-slate-900 border-slate-600 shadow-slate-900/60"
-            }`}
-            style={isMax
-              ? { top: 0, left: 0, right: 0, bottom: 0, width: '100vw', height: '100vh', borderRadius: 0 }
-              : { top: pos.y, left: pos.x, width: 640, minHeight: 420, resize: 'both', overflow: 'hidden' }
-            }
-          >
-            {/* Popup title bar — draggable */}
-            <div
-              className="px-3 py-2 flex items-center justify-between bg-[#141419] border-b border-slate-800/80 cursor-move select-none shrink-0"
-              onMouseDown={isMax ? undefined : (e) => handlePopupMouseDown(collabId, e)}
-            >
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse"></span>
-                <span className="text-[11px] font-semibold text-slate-200">
-                  {sharingCollab ? sharingCollab.name : `User-${collabId}`}&nbsp;— Screen Share
-                </span>
-              </div>
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={() => setMaximizedPopups(prev => ({ ...prev, [collabId]: !isMax }))}
-                  className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700/50 transition-colors cursor-pointer"
-                  title={isMax ? "Restore" : "Maximize"}
-                >
-                  {isMax ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
-                </button>
-                <button
-                  onClick={() => togglePopOut(collabId)}
-                  className="p-1.5 rounded-lg text-slate-400 hover:text-amber-300 hover:bg-slate-700/50 transition-colors cursor-pointer"
-                  title="Dock back to panel"
-                >
-                  <Minimize2 className="w-3.5 h-3.5 rotate-90" />
-                </button>
-                <button
-                  onClick={() => setRemoteScreenStreams(prev => { const n = { ...prev }; delete n[collabId]; return n; })}
-                  className="p-1.5 rounded-lg text-slate-400 hover:text-red-400 hover:bg-slate-700/50 transition-colors cursor-pointer"
-                  title="Close stream"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            </div>
-            {/* Video area */}
-            <div className="flex-1 bg-black flex items-center justify-center overflow-hidden">
-              <video
-                ref={(el) => { if (el && el.srcObject !== stream) { el.srcObject = stream; el.play().catch(() => {}); } }}
-                autoPlay playsInline
-                className="w-full h-full object-contain"
-              />
-            </div>
-          </div>
-        );
-      })}
+      <FloatingScreensharePopup
+        remoteScreenStreams={remoteScreenStreams}
+        poppedOutScreens={poppedOutScreens}
+        activeCollaborators={activeCollaborators}
+        popupPositions={popupPositions}
+        maximizedPopups={maximizedPopups}
+        editorTheme={editorTheme}
+        handlePopupMouseDown={handlePopupMouseDown}
+        setMaximizedPopups={setMaximizedPopups}
+        togglePopOut={togglePopOut}
+        setRemoteScreenStreams={setRemoteScreenStreams}
+      />
 
       <ShareModal
         isOpen={isShareModalOpen}
@@ -5267,335 +2869,33 @@ export default function IDELayout() {
         userRole={userRole}
       />
 
-      {/* Create Room Modal */}
-      {showCreateRoomModal && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[100] flex items-center justify-center p-4 animate-fade-in duration-300">
-          <div className={`w-full max-w-[480px] rounded-2xl shadow-2xl flex flex-col overflow-hidden transition-all duration-300 transform scale-100 ${
-            editorTheme === "vs-dark"
-              ? "bg-[#15151c]/95 border border-[#2d2d35] text-slate-300"
-              : "bg-white border border-slate-200 text-slate-700 shadow-slate-200/50"
-          }`}>
-            {/* Header */}
-            <div className={`px-6 py-5 border-b flex items-center justify-between transition-colors duration-250 ${
-              editorTheme === "vs-dark" ? "border-slate-800/80" : "border-slate-100"
-            }`}>
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-indigo-500/15 flex items-center justify-center">
-                  <Plus className="w-4.5 h-4.5 text-indigo-400" />
-                </div>
-                <h2 className={`text-md font-bold tracking-wide ${
-                  editorTheme === "vs-dark" ? "text-white" : "text-slate-900"
-                }`}>
-                  Create New Workspace
-                </h2>
-              </div>
-              <button
-                onClick={() => setShowCreateRoomModal(false)}
-                className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
-                  editorTheme === "vs-dark"
-                    ? "hover:bg-slate-800 text-slate-500 hover:text-slate-300"
-                    : "hover:bg-slate-100 text-slate-400 hover:text-slate-600"
-                }`}
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
+      <CreateRoomModal
+        showCreateRoomModal={showCreateRoomModal}
+        setShowCreateRoomModal={setShowCreateRoomModal}
+        editorTheme={editorTheme}
+        createRoomName={createRoomName}
+        setCreateRoomName={setCreateRoomName}
+        createRoomType={createRoomType}
+        setCreateRoomType={setCreateRoomType}
+        handleConfirmCreateRoom={handleConfirmCreateRoom}
+      />
 
-            {/* Body */}
-            <div className="px-6 py-5 space-y-5">
-              {/* Room Name Input */}
-              <div>
-                <label className={`block text-[11px] font-semibold uppercase tracking-wider mb-2 ${
-                  editorTheme === "vs-dark" ? "text-slate-400" : "text-slate-500"
-                }`}>
-                  Workspace Name
-                </label>
-                <input
-                  type="text"
-                  value={createRoomName}
-                  onChange={(e) => setCreateRoomName(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') handleConfirmCreateRoom(); }}
-                  placeholder="e.g. my-project"
-                  autoFocus
-                  className={`w-full px-4 py-3 rounded-xl border text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all ${
-                    editorTheme === "vs-dark"
-                      ? "bg-[#1a1a22] border-slate-800 text-white placeholder-slate-600"
-                      : "bg-slate-50 border-slate-200 text-slate-900 placeholder-slate-400"
-                  }`}
-                />
-                <p className={`text-[10px] mt-1.5 ${
-                  editorTheme === "vs-dark" ? "text-slate-600" : "text-slate-400"
-                }`}>
-                  Only letters, numbers, hyphens and underscores allowed.
-                </p>
-              </div>
+      <InvitationModal
+        invitation={invitation}
+        editorTheme={editorTheme}
+        handleAcceptInvitation={handleAcceptInvitation}
+        handleDeclineInvitation={handleDeclineInvitation}
+      />
 
-              {/* Room Type Selector */}
-              <div>
-                <label className={`block text-[11px] font-semibold uppercase tracking-wider mb-2.5 ${
-                  editorTheme === "vs-dark" ? "text-slate-400" : "text-slate-500"
-                }`}>
-                  Visibility
-                </label>
-                <div className="grid grid-cols-2 gap-3">
-                  {/* Public Option */}
-                  <button
-                    onClick={() => setCreateRoomType("public")}
-                    className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all duration-200 cursor-pointer ${
-                      createRoomType === "public"
-                        ? (editorTheme === "vs-dark"
-                            ? "border-indigo-500 bg-indigo-950/30 shadow-md shadow-indigo-950/20"
-                            : "border-indigo-500 bg-indigo-50/80 shadow-sm")
-                        : (editorTheme === "vs-dark"
-                            ? "border-slate-800 bg-[#18181c] hover:border-slate-700 hover:bg-slate-800/30"
-                            : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50")
-                    }`}
-                  >
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                      createRoomType === "public"
-                        ? "bg-indigo-500/20"
-                        : (editorTheme === "vs-dark" ? "bg-slate-800/60" : "bg-slate-100")
-                    }`}>
-                      <Globe className={`w-5 h-5 ${
-                        createRoomType === "public" ? "text-indigo-400" : "text-slate-500"
-                      }`} />
-                    </div>
-                    <span className={`text-xs font-bold ${
-                      createRoomType === "public"
-                        ? "text-indigo-400"
-                        : (editorTheme === "vs-dark" ? "text-slate-400" : "text-slate-600")
-                    }`}>
-                      Public
-                    </span>
-                    <span className={`text-[10px] text-center leading-tight ${
-                      editorTheme === "vs-dark" ? "text-slate-600" : "text-slate-400"
-                    }`}>
-                      Anyone with the link can join
-                    </span>
-                    {createRoomType === "public" && (
-                      <div className="w-5 h-5 rounded-full bg-indigo-500 flex items-center justify-center">
-                        <Check className="w-3 h-3 text-white" />
-                      </div>
-                    )}
-                  </button>
-
-                  {/* Private Option */}
-                  <button
-                    onClick={() => setCreateRoomType("private")}
-                    className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all duration-200 cursor-pointer ${
-                      createRoomType === "private"
-                        ? (editorTheme === "vs-dark"
-                            ? "border-amber-500 bg-amber-950/20 shadow-md shadow-amber-950/20"
-                            : "border-amber-500 bg-amber-50/80 shadow-sm")
-                        : (editorTheme === "vs-dark"
-                            ? "border-slate-800 bg-[#18181c] hover:border-slate-700 hover:bg-slate-800/30"
-                            : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50")
-                    }`}
-                  >
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                      createRoomType === "private"
-                        ? "bg-amber-500/20"
-                        : (editorTheme === "vs-dark" ? "bg-slate-800/60" : "bg-slate-100")
-                    }`}>
-                      <Shield className={`w-5 h-5 ${
-                        createRoomType === "private" ? "text-amber-400" : "text-slate-500"
-                      }`} />
-                    </div>
-                    <span className={`text-xs font-bold ${
-                      createRoomType === "private"
-                        ? "text-amber-400"
-                        : (editorTheme === "vs-dark" ? "text-slate-400" : "text-slate-600")
-                    }`}>
-                      Private
-                    </span>
-                    <span className={`text-[10px] text-center leading-tight ${
-                      editorTheme === "vs-dark" ? "text-slate-600" : "text-slate-400"
-                    }`}>
-                      Passcode required to access
-                    </span>
-                    {createRoomType === "private" && (
-                      <div className="w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center">
-                        <Check className="w-3 h-3 text-white" />
-                      </div>
-                    )}
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Footer */}
-            <div className={`px-6 py-4 border-t flex items-center justify-end gap-3 ${
-              editorTheme === "vs-dark" ? "border-slate-800/80" : "border-slate-100"
-            }`}>
-              <button
-                onClick={() => setShowCreateRoomModal(false)}
-                className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-                  editorTheme === "vs-dark"
-                    ? "text-slate-400 hover:text-white hover:bg-slate-800"
-                    : "text-slate-500 hover:text-slate-800 hover:bg-slate-100"
-                }`}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleConfirmCreateRoom}
-                disabled={!createRoomName.trim()}
-                className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer flex items-center gap-2 ${
-                  !createRoomName.trim()
-                    ? "bg-slate-700 text-slate-500 cursor-not-allowed shadow-none"
-                    : createRoomType === "private"
-                      ? "bg-amber-600 hover:bg-amber-500 text-white shadow-amber-900/30 hover:shadow-[0_0_15px_rgba(245,158,11,0.3)]"
-                      : "bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-900/30 hover:shadow-[0_0_15px_rgba(99,102,241,0.4)]"
-                }`}
-              >
-                {createRoomType === "private" ? (
-                  <Lock className="w-3.5 h-3.5" />
-                ) : (
-                  <Plus className="w-3.5 h-3.5" />
-                )}
-                Create {createRoomType === "private" ? "Private" : "Public"} Room
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Invitation Modal */}
-      {invitation && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[100] flex items-center justify-center p-4 animate-fade-in duration-300">
-          <div className={`w-full max-w-[460px] rounded-2xl shadow-2xl flex flex-col overflow-hidden transition-all duration-300 transform scale-100 ${
-            editorTheme === "vs-dark"
-              ? "bg-[#15151c]/90 border border-[#2d2d35] text-slate-350"
-              : "bg-white border border-slate-205 text-slate-700 shadow-slate-200/55"
-          }`}>
-            {/* Header */}
-            <div className={`px-6 py-5 border-b flex items-center justify-between transition-colors duration-250 ${
-              editorTheme === "vs-dark" ? "border-slate-800/80" : "border-slate-100"
-            }`}>
-              <div className="flex items-center gap-2">
-                <Globe className="w-5 h-5 text-indigo-500 animate-pulse" />
-                <h2 className={`text-md font-bold tracking-wide transition-colors duration-250 ${
-                  editorTheme === "vs-dark" ? "text-white" : "text-slate-800"
-                }`}>Workspace Invitation</h2>
-              </div>
-            </div>
-
-            {/* Content */}
-            <div className="p-6 flex flex-col gap-4 text-center">
-              <div className="mx-auto w-16 h-16 rounded-full bg-indigo-500/10 border border-indigo-500/35 flex items-center justify-center text-indigo-500 mb-2">
-                <UserPlus className="w-7 h-7" />
-              </div>
-              <p className="text-sm">
-                You have been invited to join the collaborative workspace:
-              </p>
-              <div className={`py-3 px-4 rounded-xl font-mono text-sm font-bold border transition-colors ${
-                editorTheme === "vs-dark" 
-                  ? "bg-slate-900/50 border-slate-800 text-indigo-400" 
-                  : "bg-slate-50 border-slate-150 text-indigo-600"
-              }`}>
-                {invitation.room}
-              </div>
-              <p className="text-[11px] text-slate-500">
-                Role assigned to you: <strong className="uppercase text-indigo-500">{invitation.role}</strong>
-              </p>
-              <p className="text-xs text-slate-400 mt-2">
-                Before joining, you are currently viewing your own personal workspace. Would you like to connect to the shared room?
-              </p>
-            </div>
-
-            {/* Actions */}
-            <div className={`px-6 py-4.5 border-t flex items-center justify-end gap-3 transition-colors duration-250 ${
-              editorTheme === "vs-dark" ? "bg-[#0f0f12]/80 border-slate-800/60" : "bg-[#f8fafc] border-slate-100"
-            }`}>
-              <button
-                onClick={handleDeclineInvitation}
-                className={`px-4.5 py-2.5 rounded-xl text-xs font-bold transition-all border cursor-pointer ${
-                  editorTheme === "vs-dark"
-                    ? "border-slate-800 hover:bg-slate-850 text-slate-400 hover:text-white"
-                    : "border-slate-200 bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-900"
-                }`}
-              >
-                Stay in Personal Workspace
-              </button>
-              <button
-                onClick={handleAcceptInvitation}
-                className="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2.5 rounded-xl text-xs font-bold transition-all shadow-md shadow-indigo-900/25 cursor-pointer flex items-center gap-1.5"
-              >
-                <Check className="w-4 h-4" />
-                Join Workspace
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Session Ended Screen */}
-      {sessionEnded && (
-        <div className={`fixed inset-0 z-[150] flex flex-col items-center justify-center p-6 transition-colors duration-500 ${
-          editorTheme === "vs-dark" ? "bg-[#0d0d11]" : "bg-slate-50"
-        }`}>
-          {/* Background radial glow */}
-          <div className="absolute inset-0 overflow-hidden pointer-events-none">
-            <div className="absolute -top-[30%] -left-[20%] w-[70%] h-[70%] rounded-full bg-indigo-500/10 blur-[120px]" />
-            <div className="absolute -bottom-[30%] -right-[20%] w-[70%] h-[70%] rounded-full bg-purple-500/10 blur-[120px]" />
-          </div>
-
-          <div className={`w-full max-w-[500px] p-8 rounded-3xl border text-center shadow-2xl flex flex-col gap-6 backdrop-blur-md transition-all duration-500 transform scale-100 ${
-            editorTheme === "vs-dark"
-              ? "bg-[#15151c]/80 border-slate-800/80 text-slate-300"
-              : "bg-white/90 border-slate-200 text-slate-700 shadow-slate-200/50"
-          }`}>
-            <div className="mx-auto w-20 h-20 rounded-full bg-red-500/10 border border-red-500/30 flex items-center justify-center text-red-500 mb-2 animate-pulse">
-              <PhoneOff className="w-9 h-9" />
-            </div>
-
-            <h1 className={`text-2xl font-bold tracking-tight transition-colors duration-250 ${
-              editorTheme === "vs-dark" ? "text-white" : "text-slate-800"
-        }`}>
-              Session Ended Successfully
-            </h1>
-
-            <p className="text-sm text-slate-500 leading-relaxed">
-              You have disconnected from the workspace call. The active collaborative editing session has been closed on your end.
-            </p>
-
-            <div className={`py-3 px-4 rounded-2xl font-mono text-xs border transition-colors ${
-              editorTheme === "vs-dark" 
-                ? "bg-slate-900/50 border-slate-800 text-indigo-400" 
-                : "bg-slate-50 border-slate-150 text-indigo-600"
-            }`}>
-              Workspace: <span className="font-bold">{workspaceId}</span>
-            </div>
-
-            <div className="flex flex-col sm:flex-row gap-3 justify-center mt-2">
-              <button
-                onClick={() => {
-                  setSessionEnded(false);
-                  setIsCallActive(true);
-                  setIsCallPanelOpen(true);
-                }}
-                className="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-3 rounded-2xl text-sm font-semibold transition-all shadow-md shadow-indigo-900/30 hover:shadow-[0_0_15px_rgba(99,102,241,0.4)] cursor-pointer flex items-center justify-center gap-1.5"
-              >
-                <PhoneOff className="w-4 h-4 rotate-[135deg]" />
-                Reconnect to Call
-              </button>
-              <button
-                onClick={() => {
-                  setSessionEnded(false);
-                  handleSwitchRoom("my-room");
-                }}
-                className={`px-6 py-3 rounded-2xl text-sm font-semibold transition-all border cursor-pointer ${
-                  editorTheme === "vs-dark"
-                    ? "border-slate-800 hover:bg-slate-800 text-slate-400 hover:text-white"
-                    : "border-slate-200 bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-900"
-                }`}
-              >
-                Go to Personal Workspace
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <SessionEndedScreen
+        sessionEnded={sessionEnded}
+        setSessionEnded={setSessionEnded}
+        editorTheme={editorTheme}
+        workspaceId={workspaceId}
+        setIsCallActive={setIsCallActive}
+        setIsCallPanelOpen={setIsCallPanelOpen}
+        handleSwitchRoom={handleSwitchRoom}
+      />
     </div>
   );
 }
