@@ -98,6 +98,51 @@
   animation: pulse-glow-purple 2.5s infinite ease-in-out;
 }
 
+@keyframes ai-glow-breathe {
+  0%, 100% {
+    box-shadow: 0 0 10px rgba(168, 85, 247, 0.3), 0 0 20px rgba(99, 102, 241, 0.15);
+    border-color: rgba(168, 85, 247, 0.35);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(168, 85, 247, 0.65), 0 0 35px rgba(129, 140, 248, 0.4);
+    border-color: rgba(168, 85, 247, 0.7);
+  }
+}
+
+.ai-activity-btn {
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.ai-activity-btn:hover {
+  transform: translateY(-2px) scale(1.12);
+  box-shadow: 0 0 20px rgba(168, 85, 247, 0.6), 0 0 35px rgba(99, 102, 241, 0.35);
+  border-color: rgba(168, 85, 247, 0.8) !important;
+}
+
+.ai-activity-btn .ai-icon-target {
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.ai-activity-btn:hover .ai-icon-target {
+  transform: rotate(8deg) scale(1.12);
+  color: #c084fc !important;
+  filter: drop-shadow(0 0 8px rgba(192, 132, 252, 0.85));
+}
+
+.ai-activity-btn:active {
+  transform: scale(0.95);
+}
+
+.ai-header-badge {
+  animation: ai-glow-breathe 3s infinite ease-in-out;
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.ai-header-badge:hover {
+  transform: rotate(-6deg) scale(1.08);
+  box-shadow: 0 0 25px rgba(168, 85, 247, 0.75);
+}
+
 .animate-bounce-typing {
   animation: bounce-typing 1s infinite ease-in-out;
 }

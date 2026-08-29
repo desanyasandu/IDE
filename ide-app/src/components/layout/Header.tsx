@@ -6,7 +6,7 @@ import {
   Sun,
   Moon,
   TerminalSquare,
-  Sparkles
+  Bot
 } from "lucide-react";
 import { EditorTheme, MenuItem, UserRole } from "../../types/ide";
 
@@ -166,14 +166,16 @@ export const Header: React.FC<HeaderProps> = ({
         <button
           type="button"
           onClick={() => setRightSidebarOpen(prev => !prev)}
-          className={`p-1.5 rounded-lg hover-scale cursor-pointer transition-colors duration-250 ${
+          className={`p-1.5 rounded-xl cursor-pointer transition-all duration-300 ai-activity-btn ${
             rightSidebarOpen
-              ? (editorTheme === "vs-dark" ? "bg-purple-950/50 text-purple-400 shadow-[0_0_12px_rgba(168,85,247,0.25)] border border-purple-500/30" : "bg-purple-50 text-purple-600 border border-purple-200")
-              : (editorTheme === "vs-dark" ? "text-slate-400 hover:bg-slate-800/50 hover:text-white" : "text-slate-500 hover:bg-slate-100 hover:text-slate-800")
+              ? (editorTheme === "vs-dark"
+                  ? "bg-purple-950/40 text-purple-400 shadow-[0_0_15px_rgba(168,85,247,0.35)] border border-purple-500/40 animate-pulse-glow-purple"
+                  : "bg-purple-100/80 text-purple-600 border border-purple-300 shadow-[0_0_15px_rgba(168,85,247,0.35)] animate-pulse-glow-purple")
+              : (editorTheme === "vs-dark" ? "text-slate-400 hover:text-purple-400 hover:bg-purple-950/20" : "text-slate-500 hover:text-purple-600 hover:bg-purple-50")
           }`}
-          title="Toggle AI Chat Panel"
+          title="Toggle AI Assistant"
         >
-          <Sparkles className="w-4 h-4" />
+          <Bot className={`w-4.5 h-4.5 ai-icon-target ${rightSidebarOpen ? "text-purple-400" : "text-slate-400"}`} />
         </button>
       </div>
     </header>

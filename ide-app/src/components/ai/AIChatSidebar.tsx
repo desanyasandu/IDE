@@ -1,5 +1,5 @@
 import React from "react";
-import { Sparkles, X, Mic, MicOff, Send } from "lucide-react";
+import { Sparkles, Bot, X, Mic, MicOff, Send } from "lucide-react";
 import { ChatMessage, EditorTheme } from "../../types/ide";
 import ChatMessageBubble from "./ChatMessageBubble";
 
@@ -78,8 +78,8 @@ export const AIChatSidebar: React.FC<AIChatSidebarProps> = ({
             : "bg-gradient-to-r from-[#fcfdfd] via-[#f8fafc] to-[#fcfdfd] border-[#e2e8f0]"
         }`}>
           <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400 shadow-[0_0_15px_rgba(168,85,247,0.2)] animate-pulse-glow-purple">
-              <Sparkles className="w-4.5 h-4.5" />
+            <div className="p-2 rounded-xl bg-purple-500/15 border border-purple-500/30 text-purple-400 shadow-[0_0_16px_rgba(168,85,247,0.3)] ai-header-badge cursor-pointer">
+              <Bot className="w-5 h-5" />
             </div>
             <div>
               <span className="text-[10px] font-extrabold uppercase tracking-widest text-purple-500 block">System AI</span>

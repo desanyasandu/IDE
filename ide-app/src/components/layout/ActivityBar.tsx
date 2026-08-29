@@ -5,7 +5,7 @@ import {
   GitBranch,
   Layers,
   PhoneCall,
-  Sparkles,
+  Bot,
   User,
   Settings
 } from "lucide-react";
@@ -177,19 +177,22 @@ export const ActivityBar: React.FC<ActivityBarProps> = ({
 
         <hr className="w-8 border-slate-800/80 my-1.5" />
 
-        {/* AI Assistant Sidebar Toggle (Activates right sidebar with pulse glow) */}
+        {/* AI Assistant Sidebar Toggle (Activates right sidebar with futuristic glow & dynamic hover) */}
         <button
           onClick={() => setRightSidebarOpen(prev => !prev)}
-          className={`p-2.5 rounded-xl transition-all duration-300 relative cursor-pointer ${
+          className={`p-2.5 rounded-xl transition-all duration-300 relative cursor-pointer ai-activity-btn ${
             rightSidebarOpen
               ? (editorTheme === "vs-dark"
-                  ? "text-purple-400 bg-purple-950/20 border border-purple-800/40 shadow-[0_0_15px_rgba(168,85,247,0.25)] animate-pulse-glow-purple"
-                  : "text-purple-600 bg-purple-50 border border-purple-300 shadow-[0_0_15px_rgba(168,85,247,0.25)] animate-pulse-glow-purple")
-              : (editorTheme === "vs-dark" ? "hover:text-purple-400 hover:bg-purple-950/10" : "hover:text-purple-600 hover:bg-purple-50")
+                  ? "text-purple-400 bg-purple-950/30 border border-purple-800/60 shadow-[0_0_18px_rgba(168,85,247,0.35)] animate-pulse-glow-purple"
+                  : "text-purple-600 bg-purple-100/80 border border-purple-300 shadow-[0_0_18px_rgba(168,85,247,0.35)] animate-pulse-glow-purple")
+              : (editorTheme === "vs-dark" ? "hover:text-purple-400 hover:bg-purple-950/20 text-slate-400" : "hover:text-purple-600 hover:bg-purple-50 text-slate-500")
           }`}
-          title="Toggle AI Copilot"
+          title="Toggle AI Assistant"
         >
-          <Sparkles className={`w-5.5 h-5.5 ${rightSidebarOpen ? "text-purple-400" : "text-slate-400"}`} />
+          <Bot className={`w-5.5 h-5.5 ai-icon-target ${rightSidebarOpen ? "text-purple-400" : "text-slate-400"}`} />
+          {rightSidebarOpen && (
+            <span className="absolute left-0 top-1/4 w-[3px] h-1/2 bg-purple-500 rounded-r shadow-[0_0_8px_#a855f7]"></span>
+          )}
         </button>
       </div>
 
