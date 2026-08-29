@@ -1,5 +1,5 @@
 import React from "react";
-import { Sparkles, X, Code, Bug, Play, Mic, MicOff, Send } from "lucide-react";
+import { Sparkles, X, Mic, MicOff, Send } from "lucide-react";
 import { ChatMessage, EditorTheme } from "../../types/ide";
 import ChatMessageBubble from "./ChatMessageBubble";
 
@@ -15,7 +15,6 @@ interface AIChatSidebarProps {
   streamingMessage: string;
   copiedCodeId: string | null;
   handleCopyCode: (code: string, id: string) => void;
-  handleQuickPrompt: (promptType: "explain" | "refactor" | "test") => void;
   inputMessage: string;
   setInputMessage: (msg: string) => void;
   isListening: boolean;
@@ -39,7 +38,6 @@ export const AIChatSidebar: React.FC<AIChatSidebarProps> = ({
   streamingMessage,
   copiedCodeId,
   handleCopyCode,
-  handleQuickPrompt,
   inputMessage,
   setInputMessage,
   isListening,
@@ -219,56 +217,6 @@ export const AIChatSidebar: React.FC<AIChatSidebarProps> = ({
           )}
 
           <div ref={chatEndRef} />
-        </div>
-
-        {/* Quick Prompts Panel */}
-        <div className={`px-4 py-3.5 flex flex-col gap-2 shrink-0 border-t transition-colors duration-250 ${
-          editorTheme === "vs-dark"
-            ? "border-[#1c1c22] bg-[#07070a]/60"
-            : "border-[#e2e8f0] bg-[#f8fafc]"
-        }`}>
-          <span className="text-[9px] text-slate-500 font-extrabold uppercase tracking-widest pl-0.5">Quick Suggestions</span>
-          <div className="flex flex-wrap gap-1.5">
-            <button
-              onClick={() => handleQuickPrompt("explain")}
-              type="button"
-              disabled={aiStatus !== "idle"}
-              className={`flex items-center gap-1.5 text-[10px] px-3.5 py-2 rounded-xl transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-sm hover:shadow-[0_0_12px_rgba(168,85,247,0.25)] ${
-                editorTheme === "vs-dark"
-                  ? "text-slate-200 hover:text-white bg-[#161620] hover:bg-purple-950/20 border border-[#252533] hover:border-purple-500/55"
-                  : "text-slate-700 hover:text-purple-700 bg-white hover:bg-purple-50/50 border border-slate-200 hover:border-purple-300"
-              }`}
-            >
-              <Code className="w-3.5 h-3.5 text-purple-400" />
-              <span>Explain code</span>
-            </button>
-            <button
-              onClick={() => handleQuickPrompt("refactor")}
-              type="button"
-              disabled={aiStatus !== "idle"}
-              className={`flex items-center gap-1.5 text-[10px] px-3.5 py-2 rounded-xl transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-sm hover:shadow-[0_0_12px_rgba(168,85,247,0.25)] ${
-                editorTheme === "vs-dark"
-                  ? "text-slate-200 hover:text-white bg-[#161620] hover:bg-purple-950/20 border border-[#252533] hover:border-purple-500/55"
-                  : "text-slate-700 hover:text-purple-700 bg-white hover:bg-purple-50/50 border border-slate-200 hover:border-purple-300"
-              }`}
-            >
-              <Bug className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Refactor</span>
-            </button>
-            <button
-              onClick={() => handleQuickPrompt("test")}
-              type="button"
-              disabled={aiStatus !== "idle"}
-              className={`flex items-center gap-1.5 text-[10px] px-3.5 py-2 rounded-xl transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-sm hover:shadow-[0_0_12px_rgba(168,85,247,0.25)] ${
-                editorTheme === "vs-dark"
-                  ? "text-slate-200 hover:text-white bg-[#161620] hover:bg-purple-950/20 border border-[#252533] hover:border-purple-500/55"
-                  : "text-slate-700 hover:text-purple-700 bg-white hover:bg-purple-50/50 border border-slate-200 hover:border-purple-300"
-              }`}
-            >
-              <Play className="w-3.5 h-3.5 text-amber-400" />
-              <span>Write Tests</span>
-            </button>
-          </div>
         </div>
 
         {/* Input Area */}

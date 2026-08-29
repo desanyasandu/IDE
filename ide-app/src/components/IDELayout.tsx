@@ -2285,19 +2285,6 @@ export default function IDELayout() {
     }, 400);
   };
 
-  // AI Prompt Helpers
-  const handleQuickPrompt = (promptType: "explain" | "refactor" | "test") => {
-    let text = "";
-    if (promptType === "explain") text = `Explain the code in ${files[activeFilePath].name}`;
-    if (promptType === "refactor") text = `Suggest optimizations and refactoring for ${files[activeFilePath].name}`;
-    if (promptType === "test") text = `Generate Jest unit tests for the current code in ${files[activeFilePath].name}`;
-
-    setInputMessage(text);
-    if (messageInputRef.current) {
-      messageInputRef.current.focus();
-    }
-  };
-
   // Copy code to clipboard helper
   const handleCopyCode = (code: string, id: string) => {
     navigator.clipboard.writeText(code);
@@ -2610,7 +2597,6 @@ export default function IDELayout() {
         activeMenu={activeMenu}
         setActiveMenu={setActiveMenu}
         IDE_MENUS={IDE_MENUS}
-        activeFile={activeFile}
         userRole={userRole}
         handleCreateNewRoom={handleCreateNewRoom}
         setIsShareModalOpen={setIsShareModalOpen}
@@ -2778,7 +2764,6 @@ export default function IDELayout() {
           streamingMessage={streamingMessage}
           copiedCodeId={copiedCodeId}
           handleCopyCode={handleCopyCode}
-          handleQuickPrompt={handleQuickPrompt}
           inputMessage={inputMessage}
           setInputMessage={setInputMessage}
           isListening={isListening}

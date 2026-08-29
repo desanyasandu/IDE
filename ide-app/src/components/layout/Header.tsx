@@ -8,7 +8,7 @@ import {
   TerminalSquare,
   Sparkles
 } from "lucide-react";
-import { EditorTheme, MenuItem, MockFile, UserRole } from "../../types/ide";
+import { EditorTheme, MenuItem, UserRole } from "../../types/ide";
 
 interface HeaderProps {
   editorTheme: EditorTheme;
@@ -16,7 +16,6 @@ interface HeaderProps {
   activeMenu: string | null;
   setActiveMenu: (menu: string | null) => void;
   IDE_MENUS: Record<string, MenuItem[]>;
-  activeFile?: MockFile;
   userRole: UserRole;
   handleCreateNewRoom: () => void;
   setIsShareModalOpen: (open: boolean) => void;
@@ -32,7 +31,6 @@ export const Header: React.FC<HeaderProps> = ({
   activeMenu,
   setActiveMenu,
   IDE_MENUS,
-  activeFile,
   userRole,
   handleCreateNewRoom,
   setIsShareModalOpen,
@@ -105,20 +103,6 @@ export const Header: React.FC<HeaderProps> = ({
         {activeMenu && (
           <div className="fixed inset-0 z-40" onClick={() => setActiveMenu(null)}></div>
         )}
-      </div>
-
-      {/* Active file display */}
-      <div className={`hidden md:flex items-center gap-2 px-4 py-1.5 rounded-full border transition-colors duration-250 ${
-        editorTheme === "vs-dark"
-          ? "bg-[#0e0e11]/80 border-slate-800/80"
-          : "bg-[#f3f4f6] border-slate-300/80"
-      }`}>
-        <span className={`text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${
-          editorTheme === "vs-dark"
-            ? "text-indigo-400 bg-indigo-950/40 border-indigo-900/40"
-            : "text-indigo-600 bg-indigo-50 border-indigo-200"
-        }`}>Active Workspace</span>
-        <span className={`text-xs font-mono select-all transition-colors duration-250 ${editorTheme === "vs-dark" ? "text-slate-300" : "text-slate-700"}`}>{activeFile?.path || "No file open"}</span>
       </div>
 
       {/* Multiplayer Avatars & Share */}
